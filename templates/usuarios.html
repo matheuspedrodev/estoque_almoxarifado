@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Usuários - Virtron</title>
+    <style>
+        :root { --verde-escuro: #064e2e; --verde-medio: #057a44; --verde-vibrante: #47b549; --fundo-cinza: #f4f6f5; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: var(--fundo-cinza); }
+        .header-virtron { background-color: var(--verde-escuro); color: white; padding: 15px 40px; display: flex; align-items: center; gap: 20px; }
+        .header-virtron img { max-height: 90px; }
+        .header-virtron h1 { margin: 0; font-size: 24px; border-left: 2px solid var(--verde-vibrante); padding-left: 15px;}
+        .container { padding: 30px 40px; display: flex; flex-direction: column; align-items: center; }
+        .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); width: 100%; max-width: 500px; border-top: 4px solid var(--verde-medio); margin-bottom: 20px;}
+        .form-group { margin-bottom: 15px; }
+        label { font-weight: bold; color: #555; }
+        input, select { padding: 10px; width: 100%; margin-top: 5px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 12px; background-color: var(--verde-medio); color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px;}
+        .btn-voltar { color: var(--verde-escuro); text-decoration: none; font-weight: bold; margin-bottom: 20px; align-self: flex-start;}
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #eee; padding: 12px; text-align: left; }
+        th { background-color: var(--verde-escuro); color: white; }
+    </style>
+</head>
+<body>
+    <div class="header-virtron">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Virtron">
+        <h1>Controle de Usuários</h1>
+    </div>
+    <div class="container">
+        <a href="/" class="btn-voltar">⬅ Voltar ao Início</a>
+        
+        <div class="card">
+            <h2>👤 Cadastrar Novo Usuário</h2>
+            <form action="/gerenciar_usuarios" method="POST">
+                <div class="form-group">
+                    <label>Nome de Usuário (Login):</label>
+                    <input type="text" name="usuario" placeholder="Ex: joao.silva" required>
+                </div>
+                <div class="form-group">
+                    <label>Senha de Acesso:</label>
+                    <input type="password" name="senha" required>
+                </div>
+                <div class="form-group">
+                    <label>Nível de Permissão:</label>
+                    <select name="nivel" required>
+                        <option value="operador">Operador (Apenas lançamentos físicos)</option>
+                        <option value="admin">Administrador (Acesso total + Financeiro)</option>
+                    </select>
+                </div>
+                <button type="submit">Salvar Novo Usuário</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>👥 Usuários Ativos no Sistema</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Usuário</th>
+                        <th>Nível</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for usu in usuarios %}
+                    <tr>
+                        <td><b>{{ usu[1] }}</b></td>
+                        <td>{{ 'Administrador 🛠️' if usu[2] == 'admin' else 'Operador 📦' }}</td>
+                        <td>
+                            {% if usu[0] != session['usuario_id'] %}
+                                <a href="/excluir_usuario/{{ usu[0] }}" style="text-decoration: none; font-size: 18px;" onclick="return confirm('Tem certeza que deseja remover o acesso deste usuário?');">🗑️</a>
+                            {% else %}
+                                <span style="color: #999; font-size: 12px;">(Você)</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

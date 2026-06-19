@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Almoxarifado - Virtron Energia Solar</title>
+    <style>
+        :root { --verde-escuro: #064e2e; --verde-medio: #057a44; --verde-vibrante: #47b549; --fundo-cinza: #f4f6f5; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: var(--fundo-cinza); color: #333;}
+        .header-virtron { background-color: var(--verde-escuro); color: white; padding: 15px 40px; display: flex; align-items: center; gap: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        .header-virtron img { max-height: 90px; }
+        .header-virtron h1 { margin: 0; font-size: 24px; font-weight: normal; border-left: 2px solid var(--verde-vibrante); padding-left: 15px;}
+        .container { padding: 30px 40px; }
+        .grid-container { display: flex; flex-wrap: wrap; gap: 20px; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); flex: 1; min-width: 300px; margin-bottom: 20px; border-top: 4px solid var(--verde-medio);}
+        h2 { color: var(--verde-escuro); margin-top: 0;}
+        .card-alerta { background-color: #fff3cd; border-left: 6px solid #ffc107; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .card-alerta h2 { color: #856404; }
+        .tabela-alerta { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+        .tabela-alerta th { background-color: #ffc107; color: #333; }
+        .form-group { margin-bottom: 15px; }
+        label { font-weight: bold; color: #555; }
+        input, select { padding: 10px; width: 100%; margin-top: 5px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 12px; background-color: var(--verde-medio); color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; width: 100%; font-weight: bold; transition: 0.3s;}
+        button:hover { background-color: var(--verde-escuro); }
+        button.btn-retirar { background-color: #d32f2f; }
+        .btn-menu { display: inline-block; margin-bottom: 20px; padding: 10px 20px; background-color: white; color: var(--verde-escuro); text-decoration: none; border-radius: 4px; font-weight: bold; border: 2px solid var(--verde-escuro); transition: 0.3s;}
+        .btn-menu:hover { background-color: var(--verde-escuro); color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+        th, td { border: 1px solid #eee; padding: 12px; text-align: left; }
+        th { background-color: var(--verde-escuro); color: white; font-weight: normal;}
+        .alerta-vermelho { background-color: #ffebee; color: #c62828; }
+        .alerta-amarelo { background-color: #fff8e1; color: #f57f17; }
+        .item-retirada { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        .item-retirada select { flex: 3; margin-top: 0; }
+        .item-retirada input { flex: 1; margin-top: 0; }
+        .btn-remover { background-color: #d32f2f; padding: 10px; width: auto; margin-top: 0; }
+        .btn-adicionar-linha { background-color: #eceff1; color: #333; border: 1px solid #ccc; margin-bottom: 15px; }
+        
+        .barra-busca { display: flex; gap: 15px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; align-items: flex-end; border-left: 5px solid var(--verde-vibrante);}
+        .barra-busca .form-group { margin-bottom: 0; flex: 1; }
+        .barra-busca button { margin-top: 0; padding: 10px; width: 150px; }
+    </style>
+</head>
+<body>
+
+    <div class="header-virtron">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Virtron">
+        <h1>Sistema de Almoxarifado</h1>
+    </div>
+
+    <div class="container">
+        <div style="float: right; text-align: right; margin-bottom: 20px;">
+            Olá, <b>{{ session['usuario_nome'] }}</b> ({{ 'Administrador' if session['usuario_nivel'] == 'admin' else 'Operador' }}) | 
+            <a href="/logout" style="color: #d32f2f; font-weight: bold; text-decoration: none;">🚪 Sair</a>
+        </div>
+
+        <a href="/historico" class="btn-menu">🗂️ Histórico de Protocolos</a>
+        <a href="/kits" class="btn-menu" style="margin-left: 10px;">🧰 Gerenciar Kits</a>
+        
+        {% if session['usuario_nivel'] == 'admin' %}
+            <a href="/gerenciar_usuarios" class="btn-menu" style="margin-left: 10px; border-color: #6a1b9a; color: #6a1b9a;">👤 Gerenciar Usuários</a>
+            <a href="/gerenciar_grupos" class="btn-menu" style="margin-left: 10px; border-color: #17a2b8; color: #17a2b8;">📁 Configurar Grupos</a>
+            <a href="/financeiro" class="btn-menu" style="margin-left: 10px; border-color: #ffc107; color: #856404; background-color: #fff3cd;">📊 Dashboard Financeiro</a>
+        {% endif %}
+
+        <div class="grid-container">
+            <div class="card">
+                <h2>➕ Novo Cadastro (Item Novo)</h2>
+                <small style="color: #666; display:block; margin-bottom: 10px;">Use apenas para itens que NUNCA foram cadastrados no sistema.</small>
+                <form action="/adicionar" method="POST">
+                    <div class="form-group"><label>Nome do Material:</label><input type="text" name="nome" required></div>
+                    <div class="form-group">
+                        <label>Grupo / Categoria:</label>
+                        <select name="grupo_id" required>
+                            <option value="">Escolha um grupo...</option>
+                            {% for grupo in grupos %} <option value="{{ grupo[0] }}">{{ grupo[1] }}</option> {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Unidade de Medida:</label>
+                        <select name="unidade" required>
+                            <option value="UN">Unidade (UN)</option><option value="KG">Quilograma (KG)</option><option value="M">Metro (M)</option><option value="CX">Caixa (CX)</option><option value="PCT">Pacote (PCT)</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Qtd Inicial:</label><input type="number" name="quantidade" required></div>
+                    <div class="form-group"><label>Valor Unitário (R$):</label><input type="number" name="preco_unitario" step="0.01" min="0" value="0.00" required></div>
+                    <div class="form-group"><label>Estoque Mínimo:</label><input type="number" name="minimo" required></div>
+                    <div class="form-group"><label>Estoque Máximo:</label><input type="number" name="maximo" required></div>
+                    <div class="form-group"><label>Ponto de Pedido:</label><input type="number" name="ponto" required></div>
+                    <button type="submit">Cadastrar e Salvar</button>
+                </form>
+            </div>
+
+            <div class="card" style="border-top-color: #28a745;">
+                <h2>📥 Registrar Entrada (Compra/NF)</h2>
+                <small style="color: #666; display:block; margin-bottom: 10px;">Use para dar entrada em materiais que já existem no estoque.</small>
+                <form action="/adicionar_estoque" method="POST">
+                    <div class="form-group">
+                        <label>Selecione o Material:</label>
+                        <select name="produto_id" required>
+                            <option value="">Escolha o material...</option>
+                            {% for produto in produtos %} <option value="{{ produto[0] }}">{{ produto[1] }} (Atual: {{ produto[2] }} {{ produto[6] }})</option> {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Quantidade Comprada:</label>
+                        <input type="number" name="quantidade_entrada" min="1" required placeholder="Ex: 50">
+                    </div>
+                    <div class="form-group">
+                        <label>Novo Valor Unitário desta Compra (R$):</label>
+                        <input type="number" name="preco_unitario" step="0.01" min="0" required placeholder="Ex: 450.00">
+                    </div>
+                    <button type="submit" style="background-color: #28a745;">Confirmar Entrada</button>
+                </form>
+            </div>
+
+            <div class="card" style="border-top-color: #d32f2f;">
+                <h2>📤 Registrar Retirada (Saída)</h2>
+                <small style="color: #666; display:block; margin-bottom: 10px;">Use quando a equipe for retirar materiais para as instalações.</small>
+                <form action="/retirar" method="POST">
+                    <div class="form-group"><label>Nome do Solicitante/Setor:</label><input type="text" name="solicitante" required placeholder="Quem está retirando?"></div>
+                    <label>Materiais Solicitados:</label>
+                    <div id="lista-itens">
+                        <div class="item-retirada">
+                            <select name="produto_id" required>
+                                <option value="">Escolha o material...</option>
+                                {% for produto in produtos %} <option value="{{ produto[0] }}">{{ produto[1] }} (Disp: {{ produto[2] }} {{ produto[6] }})</option> {% endfor %}
+                            </select>
+                            <input type="number" name="quantidade_retirada" min="1" required placeholder="Qtd">
+                            <button type="button" class="btn-remover" onclick="removerItem(this)">✖</button>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-adicionar-linha" onclick="adicionarItem()">➕ Adicionar outro material</button>
+                    <button type="submit" class="btn-retirar">Registrar Retirada Completa</button>
+                </form>
+            </div>
+        </div>
+
+        <form action="/" method="GET" class="barra-busca">
+            <div class="form-group">
+                <label>🔍 Pesquisar por Nome:</label>
+                <input type="text" name="pesquisa" value="{{ pesquisa_atual }}" placeholder="Digite o nome do material...">
+            </div>
+            <div class="form-group">
+                <label>📁 Filtrar por Grupo:</label>
+                <select name="grupo_filtro">
+                    <option value="">Todos os Grupos</option>
+                    {% for grupo in grupos %}
+                        <option value="{{ grupo[0] }}" {% if grupo_atual == grupo[0]|string %}selected{% endif %}>{{ grupo[1] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" style="background-color: var(--verde-escuro);">Filtrar</button>
+            <a href="/" style="padding: 10px 15px; background: #6c757d; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 14px;">Limpar</a>
+        </form>
+
+        <div class="card">
+            <h2>📊 Estoque Atual</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Grupo</th>
+                        <th>Material</th>
+                        <th>Valor Unitário</th>
+                        <th>Qtd Atual</th>
+                        <th>Total em Estoque</th>
+                        <th>Estoque Mín</th>
+                        <th>Estoque Máx</th>
+                        <th>Ponto Pedido</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for produto in produtos %}
+                    <tr class="{% if produto[2] <= produto[3] %} alerta-vermelho {% elif produto[2] <= produto[5] %} alerta-amarelo {% endif %}">
+                        <td>{{ produto[0] }}</td>
+                        <td><span style="background: #e0e0e0; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #444;">{{ produto[7] if produto[7] else 'Sem Grupo' }}</span></td>
+                        <td>{{ produto[1] }}</td>
+                        
+                        <td style="{% if not produto[9] or produto[9] == 0 %} color: #d32f2f; font-weight: bold; {% endif %}">
+                            R$ {{ "{:,.2f}".format(produto[9] if produto[9] is not none else 0).replace(",", "v").replace(".", ",").replace("v", ".") }}
+                        </td>
+                        
+                        <td><b>{{ produto[2] }}</b> {{ produto[6] }}</td>
+                        
+                        <td>
+                            <b>R$ {{ "{:,.2f}".format((produto[2] * (produto[9] if produto[9] is not none else 0))).replace(",", "v").replace(".", ",").replace("v", ".") }}</b>
+                        </td>
+                        
+                        <td>{{ produto[3] }} {{ produto[6] }}</td>
+                        <td>{{ produto[4] }} {{ produto[6] }}</td>
+                        <td>{{ produto[5] }} {{ produto[6] }}</td>
+                        <td>
+                            <a href="/editar/{{ produto[0] }}" style="text-decoration: none; font-size: 18px;" title="Editar">✏️</a>
+                            <a href="/excluir/{{ produto[0] }}" style="text-decoration: none; font-size: 18px; margin-left: 10px;" title="Excluir" onclick="return confirm('Tem certeza?');">🗑️</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        </div> <div style="text-align: center; color: #888; font-size: 11px; margin-top: 40px; padding-bottom: 10px; letter-spacing: 0.5px;">
+            Criado por Matheus Pedro
+        </div>
+
+    </div> <script>
+        // ... seus scripts de adicionar/remover linha da retirada ...
+    </script>
+    </div>
+
+    <script>
+        function adicionarItem() {
+            const container = document.getElementById('lista-itens');
+            const primeiroItem = container.querySelector('.item-retirada');
+            const novoItem = primeiroItem.cloneNode(true); 
+            novoItem.querySelector('input').value = ''; novoItem.querySelector('select').value = ''; 
+            container.appendChild(novoItem);
+        }
+        function removerItem(botao) {
+            const container = document.getElementById('lista-itens');
+            if (container.children.length > 1) { botao.parentElement.remove(); }
+        }
+    </script>
+</body>
+</html>

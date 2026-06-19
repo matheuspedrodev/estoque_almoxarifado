@@ -1,0 +1,17 @@
+Olá, equipe de T.I., tudo bem?
+
+Estou enviando em anexo o projeto pronto do Sistema de Controle de Almoxarifado e Estoque da Virtron Energia Solar. 
+
+O sistema foi desenvolvido em Python utilizando o framework Flask e já está totalmente preparado/estruturado para rodar conectado à nuvem do Supabase (PostgreSQL), garantindo a persistência dos dados no ambiente de homologação/produção.
+
+Para realizar o deploy, vocês precisarão apenas de dois passos simples:
+
+1. Executar o script 'criar_banco_supabase.py' (incluído no pacote) inserindo a URI oficial do Supabase da Virtron na variável URL_CONEXAO_SUPABASE. Esse script criará toda a estrutura de tabelas, grupos padrão e o usuário 'admin' inicial (senha padrão descrita no código).
+2. Substituir a mesma string de conexão (URI) no início do arquivo 'app.py' para apontar o servidor web para o banco em nuvem.
+
+As dependências do projeto estão mapeadas e fixadas no arquivo 'requirements.txt'. 
+
+Qualquer dúvida ou caso precisem de algum ajuste na arquitetura das tabelas, fico à inteira disposição!
+
+Atenciosamente,
+[Matheus]

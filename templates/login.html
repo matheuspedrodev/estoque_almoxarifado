@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - Virtron Energia Solar</title>
+    <style>
+        :root { 
+            --verde-escuro: #064e2e; 
+            --verde-medio: #057a44; 
+            --verde-vibrante: #47b549; 
+            --fundo-cinza: #eef1f0; 
+        }
+        
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            margin: 0; 
+            background-color: var(--fundo-cinza); 
+            height: 100vh; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+        }
+        
+        /* CARTÃO INVERTIDO: AGORA É VERDE ESCURO */
+        .login-card { 
+            background: var(--verde-escuro); 
+            padding: 40px; 
+            border-radius: 12px; 
+            box-shadow: 0 8px 24px rgba(6, 78, 46, 0.2); 
+            width: 100%; 
+            max-width: 350px; 
+            text-align: center; 
+            border-bottom: 5px solid var(--verde-vibrante); 
+        }
+        
+        /* A logo branca agora vai brilhar aqui */
+        .login-card img { 
+            max-height: 85px; 
+            margin-bottom: 15px; 
+        }
+        
+        .login-card h2 { 
+            margin: 0 0 25px 0; 
+            color: white; 
+            font-size: 20px; 
+            font-weight: normal;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 15px;
+        }
+        
+        .form-group { 
+            margin-bottom: 18px; 
+            text-align: left; 
+        }
+        
+        /* Labels brancas para contrastar com o fundo escuro */
+        label { 
+            font-weight: bold; 
+            color: #eceff1; 
+            font-size: 14px; 
+        }
+        
+        input { 
+            padding: 12px; 
+            width: 100%; 
+            margin-top: 6px; 
+            box-sizing: border-box; 
+            border: 1px solid rgba(255,255,255,0.2); 
+            border-radius: 6px; 
+            font-size: 14px; 
+            background-color: rgba(255, 255, 255, 0.95);
+            outline-color: var(--verde-vibrante);
+        }
+        
+        /* Botão principal em verde médio/vibrante */
+        button { 
+            padding: 14px; 
+            background-color: var(--verde-medio); 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            width: 100%; 
+            font-weight: bold; 
+            font-size: 15px; 
+            margin-top: 10px; 
+            transition: 0.3s; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        button:hover { 
+            background-color: var(--verde-vibrante); 
+        }
+        
+        .erro-msg { 
+            color: #d32f2f; 
+            background: #ffebee; 
+            padding: 10px; 
+            border-radius: 6px; 
+            font-size: 13px; 
+            margin-bottom: 20px; 
+            font-weight: bold; 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Virtron">
+        <h2>Controle de Almoxarifado</h2>
+        
+        {% if erro %}
+            <div class="erro-msg">❌ {{ erro }}</div>
+        {% endif %}
+
+        <form action="/login" method="POST">
+            <div class="form-group">
+                <label>Usuário:</label>
+                <input type="text" name="usuario" placeholder="Digite seu usuário" required>
+            </div>
+            <div class="form-group">
+                <label>Senha:</label>
+                <input type="password" name="senha" placeholder="Digite sua senha" required>
+            </div>
+            <button type="submit">Entrar no Sistema</button>
+        </form>
+    </div> <div style="position: absolute; bottom: 15px; width: 100%; text-align: center; color: #999; font-size: 11px; letter-spacing: 0.5px;">
+        Criado por Matheus Pedro
+    </div>
+
+</body>
+</html>

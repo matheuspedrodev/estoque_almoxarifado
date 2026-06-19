@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar - Virtron Energia Solar</title>
+    <style>
+        :root {
+            --verde-escuro: #064e2e;
+            --verde-medio: #057a44;
+            --verde-vibrante: #47b549;
+            --fundo-cinza: #f4f6f5;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: var(--fundo-cinza); color: #333;}
+        .header-virtron {
+            background-color: var(--verde-escuro);
+            color: white; padding: 15px 40px;
+            display: flex; align-items: center; gap: 20px;
+        }
+        .header-virtron img { max-height: 90px; }
+        .header-virtron h1 { margin: 0; font-size: 24px; font-weight: normal; border-left: 2px solid var(--verde-vibrante); padding-left: 15px;}
+
+        .container { padding: 30px 40px; display: flex; flex-direction: column; align-items: center; }
+        .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); width: 100%; max-width: 500px; border-top: 4px solid var(--verde-medio);}
+        
+        .form-group { margin-bottom: 15px; }
+        label { font-weight: bold; color: #555; }
+        input, select { padding: 10px; width: 100%; margin-top: 5px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 12px; background-color: var(--verde-medio); color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px;}
+        button:hover { background-color: var(--verde-escuro); }
+        .btn-voltar { color: var(--verde-escuro); text-decoration: none; font-weight: bold; margin-bottom: 20px;}
+    </style>
+</head>
+<body>
+    <div class="header-virtron">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Virtron">
+        <h1>Editar Material</h1>
+    </div>
+    <div class="container">
+        <a href="/" class="btn-voltar">⬅ Cancelar e Voltar</a>
+        <div class="card">
+            <form action="/editar/{{ produto[0] }}" method="POST">
+    <div class="form-group"><label>Nome:</label><input type="text" name="nome" value="{{ produto[1] }}" required></div>
+    <div class="form-group">
+        <label>Grupo / Categoria:</label>
+        <select name="grupo_id" required>
+            <option value="">Escolha um grupo...</option>
+            {% for grupo in grupos %}
+                <option value="{{ grupo[0] }}" {% if produto[8] == grupo[0] %}selected{% endif %}>{{ grupo[1] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group"><label>Unidade:</label>
+        <select name="unidade" required>
+            <option value="UN" {% if produto[6] == 'UN' %}selected{% endif %}>Unidade (UN)</option>
+            <option value="KG" {% if produto[6] == 'KG' %}selected{% endif %}>Quilograma (KG)</option>
+            <option value="M" {% if produto[6] == 'M' %}selected{% endif %}>Metro (M)</option>
+            <option value="CX" {% if produto[6] == 'CX' %}selected{% endif %}>Caixa (CX)</option>
+            <option value="PCT" {% if produto[6] == 'PCT' %}selected{% endif %}>Pacote (PCT)</option>
+        </select>
+    </div>
+    <div class="form-group"><label>Qtd Atual:</label><input type="number" name="quantidade" value="{{ produto[2] }}" required></div>
+    <div class="form-group"><label>Mínimo:</label><input type="number" name="minimo" value="{{ produto[3] }}" required></div>
+    <div class="form-group"><label>Máximo:</label><input type="number" name="maximo" value="{{ produto[4] }}" required></div>
+    <div class="form-group"><label>Ponto Pedido:</label><input type="number" name="ponto" value="{{ produto[5] }}" required></div>
+    <div class="form-group">
+    <label>Valor Unitário da Última Compra (R$):</label>
+    <input type="number" name="preco_unitario" step="0.01" min="0" value="{{ produto[9] if produto[9] is not none else '0.00' }}" required>
+</div>
+    <button type="submit">Salvar Alterações</button>
+</form>
+        </div>
+    </div>
+</body>
+</html>
