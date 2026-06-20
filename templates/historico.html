@@ -73,7 +73,18 @@
                         <td>
                             <ul class="lista-materiais">
                                 {% for item in protocolo.itens %}
-                                <li><b>{{ item.quantidade }} un</b> - {{ item.material }}</li>
+                                <li style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span><b>{{ item.quantidade }} un</b> - {{ item.material }}</span>
+                                    
+                                    {% if session.get('usuario_nivel') == 'admin' %}
+                                        <a href="/excluir_transacao/{{ item.id }}" 
+                                           onclick="return confirm('Apagar este registro de movimentação permanente do banco de dados?')" 
+                                           style="text-decoration: none; font-size: 14px; margin-left: 10px;" 
+                                           title="Apagar Registro">
+                                           🗑️
+                                        </a>
+                                    {% endif %}
+                                </li>
                                 {% endfor %}
                             </ul>
                         </td>
