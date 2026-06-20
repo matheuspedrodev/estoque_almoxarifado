@@ -1,12 +1,24 @@
+import os
 import psycopg2
+from werkzeug.security import generate_password_hash
 
-# O T.I. deve colocar a URI aqui e rodar este script uma única vez para criar as tabelas na nuvem
-URL_CONEXAO_SUPABASE = "COLOQUE_A_SUA_URI_DO_SUPABASE_AQUI"
+os.environ['PGCLIENTENCODING'] = 'UTF8'
+
+URL_CONEXAO_SUPABASE = os.environ.get('DATABASE_URL')
+
+if not URL_CONEXAO_SUPABASE:
+    print("ERRO: variavel DATABASE_URL nao encontrada.")
+    print("Execute antes de rodar o script:")
+    print('  $env:DATABASE_URL = "sua_url_aqui"')
+    exit(1)
+
+# Senha inicial do administrador — troque após o primeiro login
+SENHA_ADMIN_INICIAL = "virtron123"
 
 try:
     conexao = psycopg2.connect(URL_CONEXAO_SUPABASE)
     cursor = conexao.cursor()
-    print("🛰️ Conectado ao Supabase com sucesso! Criando tabelas...")
+    print("Conectado ao Supabase com sucesso! Criando tabelas...")
 
     # 1. Tabela de Grupos
     cursor.execute('''
@@ -21,7 +33,7 @@ try:
         CREATE TABLE IF NOT EXISTS Usuarios (
             id SERIAL PRIMARY KEY,
             usuario VARCHAR(100) NOT NULL UNIQUE,
-            senha VARCHAR(100) NOT NULL,
+            senha VARCHAR(256) NOT NULL,
             nivel VARCHAR(20) NOT NULL
         );
     ''')
@@ -73,19 +85,32 @@ try:
         );
     ''')
 
-    # Carga Inicial de Grupos e Admin Padrão
-    grupos_padrao = ['Linha PVC', 'Cabos Elétricos', 'Estruturas', 'Módulos', 'Inversores', 'Material de Escritório']
+    # Carga inicial de Grupos padrão
+    grupos_padrao = [
+        'Linha PVC', 'Cabos Elétricos', 'Estruturas',
+        'Módulos', 'Inversores', 'Material de Escritório'
+    ]
     for grupo in grupos_padrao:
-        cursor.execute("INSERT INTO Grupos (nome) VALUES (%s) ON CONFLICT (nome) DO NOTHING;", (grupo,))
-        
-    cursor.execute("INSERT INTO Usuarios (usuario, senha, nivel) VALUES ('admin', 'virtron123', 'admin') ON CONFLICT (usuario) DO NOTHING;")
+        cursor.execute(
+            "INSERT INTO Grupos (nome) VALUES (%s) ON CONFLICT (nome) DO NOTHING;",
+            (grupo,)
+        )
+
+    # Criação do administrador inicial com senha hasheada
+    senha_hash = generate_password_hash(SENHA_ADMIN_INICIAL)
+    cursor.execute(
+        "INSERT INTO Usuarios (usuario, senha, nivel) VALUES ('admin', %s, 'admin') ON CONFLICT (usuario) DO NOTHING;",
+        (senha_hash,)
+    )
 
     conexao.commit()
-    print("🚀 Estrutura do Almoxarifado criada na nuvem com sucesso!")
+    print("Estrutura do Almoxarifado criada na nuvem com sucesso!")
+    print(f"Login: admin | Senha: {SENHA_ADMIN_INICIAL}")
+    print("IMPORTANTE: Troque a senha do admin pelo sistema apos o primeiro acesso.")
 
 except Exception as e:
-    print(f"❌ Erro ao configurar o banco no Supabase: {e}")
+    print(f"Erro ao configurar o banco no Supabase: {e}")
 finally:
-    if 'conexao' in locals():
+    if 'conexao' in locals() and conexao:
         cursor.close()
         conexao.close()

@@ -32,6 +32,7 @@
         <div class="card">
             <h2>👤 Cadastrar Novo Usuário</h2>
             <form action="/gerenciar_usuarios" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label>Nome de Usuário (Login):</label>
                     <input type="text" name="usuario" placeholder="Ex: joao.silva" required>

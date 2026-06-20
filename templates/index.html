@@ -15,6 +15,7 @@
         h2 { color: var(--verde-escuro); margin-top: 0;}
         .card-alerta { background-color: #fff3cd; border-left: 6px solid #ffc107; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
         .card-alerta h2 { color: #856404; }
+        .card-erro { background: #ffebee; border-left: 6px solid #d32f2f; padding: 15px 20px; border-radius: 4px; margin-bottom: 20px; font-weight: bold; color: #c62828; }
         .tabela-alerta { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
         .tabela-alerta th { background-color: #ffc107; color: #333; }
         .form-group { margin-bottom: 15px; }
@@ -35,7 +36,6 @@
         .item-retirada input { flex: 1; margin-top: 0; }
         .btn-remover { background-color: #d32f2f; padding: 10px; width: auto; margin-top: 0; }
         .btn-adicionar-linha { background-color: #eceff1; color: #333; border: 1px solid #ccc; margin-bottom: 15px; }
-        
         .barra-busca { display: flex; gap: 15px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; align-items: flex-end; border-left: 5px solid var(--verde-vibrante);}
         .barra-busca .form-group { margin-bottom: 0; flex: 1; }
         .barra-busca button { margin-top: 0; padding: 10px; width: 150px; }
@@ -49,25 +49,61 @@
     </div>
 
     <div class="container">
+
         <div style="float: right; text-align: right; margin-bottom: 20px;">
-            Olá, <b>{{ session['usuario_nome'] }}</b> ({{ 'Administrador' if session['usuario_nivel'] == 'admin' else 'Operador' }}) | 
-            <a href="/logout" style="color: #d32f2f; font-weight: bold; text-decoration: none;">🚪 Sair</a>
+            Olá, <b>{{ session['usuario_nome'] }}</b> ({{ 'Administrador' if session['usuario_nivel'] == 'admin' else 'Operador' }}) |
+            <a href="/logout" style="color: #d32f2f; font-weight: bold; text-decoration: none;">Sair</a>
         </div>
 
-        <a href="/historico" class="btn-menu">🗂️ Histórico de Protocolos</a>
-        <a href="/kits" class="btn-menu" style="margin-left: 10px;">🧰 Gerenciar Kits</a>
-        
+        <a href="/historico" class="btn-menu">Historico de Protocolos</a>
+        <a href="/kits" class="btn-menu" style="margin-left: 10px;">Gerenciar Kits</a>
+
         {% if session['usuario_nivel'] == 'admin' %}
-            <a href="/gerenciar_usuarios" class="btn-menu" style="margin-left: 10px; border-color: #6a1b9a; color: #6a1b9a;">👤 Gerenciar Usuários</a>
-            <a href="/gerenciar_grupos" class="btn-menu" style="margin-left: 10px; border-color: #17a2b8; color: #17a2b8;">📁 Configurar Grupos</a>
-            <a href="/financeiro" class="btn-menu" style="margin-left: 10px; border-color: #ffc107; color: #856404; background-color: #fff3cd;">📊 Dashboard Financeiro</a>
+            <a href="/gerenciar_usuarios" class="btn-menu" style="margin-left: 10px; border-color: #6a1b9a; color: #6a1b9a;">Gerenciar Usuarios</a>
+            <a href="/gerenciar_grupos" class="btn-menu" style="margin-left: 10px; border-color: #17a2b8; color: #17a2b8;">Configurar Grupos</a>
+            <a href="/financeiro" class="btn-menu" style="margin-left: 10px; border-color: #ffc107; color: #856404; background-color: #fff3cd;">Dashboard Financeiro</a>
+        {% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="card-erro">&#9888; {{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% if alertas %}
+        <div class="card-alerta">
+            <h2>&#9888; Itens que precisam de reposicao ({{ alertas|length }})</h2>
+            <table class="tabela-alerta">
+                <thead>
+                    <tr>
+                        <th>Material</th>
+                        <th>Qtd Atual</th>
+                        <th>Ponto de Pedido</th>
+                        <th>Sugestao de Compra</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in alertas %}
+                    <tr>
+                        <td><b>{{ item.nome }}</b></td>
+                        <td style="color: #d32f2f; font-weight: bold;">{{ item.atual }} {{ item.unidade }}</td>
+                        <td>{{ item.ponto }} {{ item.unidade }}</td>
+                        <td style="color: #057a44; font-weight: bold;">Comprar {{ item.sugestao }} {{ item.unidade }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% endif %}
 
         <div class="grid-container">
             <div class="card">
-                <h2>➕ Novo Cadastro (Item Novo)</h2>
+                <h2>Novo Cadastro (Item Novo)</h2>
                 <small style="color: #666; display:block; margin-bottom: 10px;">Use apenas para itens que NUNCA foram cadastrados no sistema.</small>
                 <form action="/adicionar" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="form-group"><label>Nome do Material:</label><input type="text" name="nome" required></div>
                     <div class="form-group">
                         <label>Grupo / Categoria:</label>
@@ -83,18 +119,19 @@
                         </select>
                     </div>
                     <div class="form-group"><label>Qtd Inicial:</label><input type="number" name="quantidade" required></div>
-                    <div class="form-group"><label>Valor Unitário (R$):</label><input type="number" name="preco_unitario" step="0.01" min="0" value="0.00" required></div>
-                    <div class="form-group"><label>Estoque Mínimo:</label><input type="number" name="minimo" required></div>
-                    <div class="form-group"><label>Estoque Máximo:</label><input type="number" name="maximo" required></div>
+                    <div class="form-group"><label>Valor Unitario (R$):</label><input type="number" name="preco_unitario" step="0.01" min="0" value="0.00" required></div>
+                    <div class="form-group"><label>Estoque Minimo:</label><input type="number" name="minimo" required></div>
+                    <div class="form-group"><label>Estoque Maximo:</label><input type="number" name="maximo" required></div>
                     <div class="form-group"><label>Ponto de Pedido:</label><input type="number" name="ponto" required></div>
                     <button type="submit">Cadastrar e Salvar</button>
                 </form>
             </div>
 
             <div class="card" style="border-top-color: #28a745;">
-                <h2>📥 Registrar Entrada (Compra/NF)</h2>
-                <small style="color: #666; display:block; margin-bottom: 10px;">Use para dar entrada em materiais que já existem no estoque.</small>
+                <h2>Registrar Entrada (Compra/NF)</h2>
+                <small style="color: #666; display:block; margin-bottom: 10px;">Use para dar entrada em materiais que ja existem no estoque.</small>
                 <form action="/adicionar_estoque" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="form-group">
                         <label>Selecione o Material:</label>
                         <select name="produto_id" required>
@@ -107,7 +144,7 @@
                         <input type="number" name="quantidade_entrada" min="1" required placeholder="Ex: 50">
                     </div>
                     <div class="form-group">
-                        <label>Novo Valor Unitário desta Compra (R$):</label>
+                        <label>Novo Valor Unitario desta Compra (R$):</label>
                         <input type="number" name="preco_unitario" step="0.01" min="0" required placeholder="Ex: 450.00">
                     </div>
                     <button type="submit" style="background-color: #28a745;">Confirmar Entrada</button>
@@ -115,10 +152,11 @@
             </div>
 
             <div class="card" style="border-top-color: #d32f2f;">
-                <h2>📤 Registrar Retirada (Saída)</h2>
-                <small style="color: #666; display:block; margin-bottom: 10px;">Use quando a equipe for retirar materiais para as instalações.</small>
+                <h2>Registrar Retirada (Saida)</h2>
+                <small style="color: #666; display:block; margin-bottom: 10px;">Use quando a equipe for retirar materiais para as instalacoes.</small>
                 <form action="/retirar" method="POST">
-                    <div class="form-group"><label>Nome do Solicitante/Setor:</label><input type="text" name="solicitante" required placeholder="Quem está retirando?"></div>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group"><label>Nome do Solicitante/Setor:</label><input type="text" name="solicitante" required placeholder="Quem esta retirando?"></div>
                     <label>Materiais Solicitados:</label>
                     <div id="lista-itens">
                         <div class="item-retirada">
@@ -127,10 +165,10 @@
                                 {% for produto in produtos %} <option value="{{ produto[0] }}">{{ produto[1] }} (Disp: {{ produto[2] }} {{ produto[6] }})</option> {% endfor %}
                             </select>
                             <input type="number" name="quantidade_retirada" min="1" required placeholder="Qtd">
-                            <button type="button" class="btn-remover" onclick="removerItem(this)">✖</button>
+                            <button type="button" class="btn-remover" onclick="removerItem(this)">X</button>
                         </div>
                     </div>
-                    <button type="button" class="btn-adicionar-linha" onclick="adicionarItem()">➕ Adicionar outro material</button>
+                    <button type="button" class="btn-adicionar-linha" onclick="adicionarItem()">+ Adicionar outro material</button>
                     <button type="submit" class="btn-retirar">Registrar Retirada Completa</button>
                 </form>
             </div>
@@ -138,11 +176,11 @@
 
         <form action="/" method="GET" class="barra-busca">
             <div class="form-group">
-                <label>🔍 Pesquisar por Nome:</label>
+                <label>Pesquisar por Nome:</label>
                 <input type="text" name="pesquisa" value="{{ pesquisa_atual }}" placeholder="Digite o nome do material...">
             </div>
             <div class="form-group">
-                <label>📁 Filtrar por Grupo:</label>
+                <label>Filtrar por Grupo:</label>
                 <select name="grupo_filtro">
                     <option value="">Todos os Grupos</option>
                     {% for grupo in grupos %}
@@ -155,20 +193,20 @@
         </form>
 
         <div class="card">
-            <h2>📊 Estoque Atual</h2>
+            <h2>Estoque Atual</h2>
             <table>
                 <thead>
                     <tr>
                         <th>ID</th>
                         <th>Grupo</th>
                         <th>Material</th>
-                        <th>Valor Unitário</th>
+                        <th>Valor Unitario</th>
                         <th>Qtd Atual</th>
                         <th>Total em Estoque</th>
-                        <th>Estoque Mín</th>
-                        <th>Estoque Máx</th>
+                        <th>Estoque Min</th>
+                        <th>Estoque Max</th>
                         <th>Ponto Pedido</th>
-                        <th>Ações</th>
+                        <th>Acoes</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -177,44 +215,39 @@
                         <td>{{ produto[0] }}</td>
                         <td><span style="background: #e0e0e0; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #444;">{{ produto[7] if produto[7] else 'Sem Grupo' }}</span></td>
                         <td>{{ produto[1] }}</td>
-                        
                         <td style="{% if not produto[9] or produto[9] == 0 %} color: #d32f2f; font-weight: bold; {% endif %}">
                             R$ {{ "{:,.2f}".format(produto[9] if produto[9] is not none else 0).replace(",", "v").replace(".", ",").replace("v", ".") }}
                         </td>
-                        
                         <td><b>{{ produto[2] }}</b> {{ produto[6] }}</td>
-                        
                         <td>
                             <b>R$ {{ "{:,.2f}".format((produto[2] * (produto[9] if produto[9] is not none else 0))).replace(",", "v").replace(".", ",").replace("v", ".") }}</b>
                         </td>
-                        
                         <td>{{ produto[3] }} {{ produto[6] }}</td>
                         <td>{{ produto[4] }} {{ produto[6] }}</td>
                         <td>{{ produto[5] }} {{ produto[6] }}</td>
                         <td>
-                            <a href="/editar/{{ produto[0] }}" style="text-decoration: none; font-size: 18px;" title="Editar">✏️</a>
-                            <a href="/excluir/{{ produto[0] }}" style="text-decoration: none; font-size: 18px; margin-left: 10px;" title="Excluir" onclick="return confirm('Tem certeza?');">🗑️</a>
+                            <a href="/editar/{{ produto[0] }}" style="text-decoration: none; font-size: 18px;" title="Editar">&#9999;</a>
+                            <a href="/excluir/{{ produto[0] }}" style="text-decoration: none; font-size: 18px; margin-left: 10px;" title="Excluir" onclick="return confirm('Tem certeza?');">&#128465;</a>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        </div> <div style="text-align: center; color: #888; font-size: 11px; margin-top: 40px; padding-bottom: 10px; letter-spacing: 0.5px;">
+
+        <div style="text-align: center; color: #888; font-size: 11px; margin-top: 40px; padding-bottom: 10px; letter-spacing: 0.5px;">
             Criado por Matheus Pedro
         </div>
 
-    </div> <script>
-        // ... seus scripts de adicionar/remover linha da retirada ...
-    </script>
     </div>
 
     <script>
         function adicionarItem() {
             const container = document.getElementById('lista-itens');
             const primeiroItem = container.querySelector('.item-retirada');
-            const novoItem = primeiroItem.cloneNode(true); 
-            novoItem.querySelector('input').value = ''; novoItem.querySelector('select').value = ''; 
+            const novoItem = primeiroItem.cloneNode(true);
+            novoItem.querySelector('input').value = '';
+            novoItem.querySelector('select').value = '';
             container.appendChild(novoItem);
         }
         function removerItem(botao) {

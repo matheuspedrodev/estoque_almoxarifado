@@ -39,6 +39,7 @@
         <a href="/" class="btn-voltar">⬅ Cancelar e Voltar</a>
         <div class="card">
             <form action="/editar/{{ produto[0] }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group"><label>Nome:</label><input type="text" name="nome" value="{{ produto[1] }}" required></div>
     <div class="form-group">
         <label>Grupo / Categoria:</label>

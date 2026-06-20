@@ -11,7 +11,6 @@
             --fundo-cinza: #f4f6f5;
         }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: var(--fundo-cinza); color: #333;}
-        
         .header-virtron {
             background-color: var(--verde-escuro);
             color: white; padding: 15px 40px;
@@ -20,22 +19,19 @@
         }
         .header-virtron img { max-height: 90px; }
         .header-virtron h1 { margin: 0; font-size: 24px; font-weight: normal; border-left: 2px solid var(--verde-vibrante); padding-left: 15px;}
-
         .container { padding: 30px 40px; }
         .btn-voltar { display: inline-block; margin-bottom: 20px; padding: 10px 20px; background-color: white; color: var(--verde-escuro); text-decoration: none; border-radius: 4px; font-weight: bold; border: 2px solid var(--verde-escuro); transition: 0.3s;}
         .btn-voltar:hover { background-color: var(--verde-escuro); color: white; }
-
+        .card-erro { background: #ffebee; border-left: 6px solid #d32f2f; padding: 15px 20px; border-radius: 4px; margin-bottom: 20px; font-weight: bold; color: #c62828; }
         .grid-container { display: flex; flex-wrap: wrap; gap: 20px; }
         .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); flex: 1; min-width: 300px; border-top: 4px solid #17a2b8;}
         h2 { color: var(--verde-escuro); margin-top: 0; font-size: 18px;}
-        
         input, select { padding: 10px; width: 100%; margin-top: 5px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
         button { padding: 12px; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; width: 100%; font-weight: bold; transition: 0.3s;}
         .btn-padrao { background-color: #17a2b8; }
         .btn-montar { background-color: var(--verde-medio); }
         .btn-retirar { background-color: #d32f2f; }
         button:hover { opacity: 0.8; }
-
         table { width: 100%; border-collapse: collapse; background: white; }
         th, td { border: 1px solid #eee; padding: 12px; text-align: left; }
         th { background-color: #343a40; color: white; }
@@ -47,9 +43,18 @@
         <h1>Linha de Montagem de Kits</h1>
     </div>
     <div class="container">
-        <a href="/" class="btn-voltar">⬅ Voltar ao Início</a>
+        <a href="/" class="btn-voltar">&#8592; Voltar ao Inicio</a>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="card-erro">&#9888; {{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
         <div class="card" style="margin-bottom: 20px;">
-            <h2>📦 Estoque Atual de Kits Montados</h2>
+            <h2>Estoque Atual de Kits Montados</h2>
             <table>
                 <thead><tr><th>Nome do Kit</th><th>Quantidade em Estoque</th></tr></thead>
                 <tbody>
@@ -63,32 +68,48 @@
             <div class="card">
                 <h2>1. Definir/Vincular Kit</h2>
                 <form action="/criar_kit" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="text" name="nome_kit" placeholder="Nome do Kit" required>
                     <button type="submit" class="btn-padrao">Criar Nome do Kit</button>
                 </form>
                 <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
                 <form action="/adicionar_item_kit" method="POST">
-                    <select name="kit_id" required><option value="">Selecione o Kit...</option>{% for kit in kits %}<option value="{{ kit[0] }}">{{ kit[1] }}</option>{% endfor %}</select>
-                    <select name="produto_id" required><option value="">Selecione a Peça...</option>{% for produto in produtos %}<option value="{{ produto[0] }}">{{ produto[1] }}</option>{% endfor %}</select>
-                    <input type="number" name="quantidade" min="1" placeholder="Qtd de peças por Kit" required>
-                    <button type="submit" style="background-color: #6c757d;">Vincular Peça ao Kit</button>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <select name="kit_id" required>
+                        <option value="">Selecione o Kit...</option>
+                        {% for kit in kits %}<option value="{{ kit[0] }}">{{ kit[1] }}</option>{% endfor %}
+                    </select>
+                    <select name="produto_id" required>
+                        <option value="">Selecione a Peca...</option>
+                        {% for produto in produtos %}<option value="{{ produto[0] }}">{{ produto[1] }}</option>{% endfor %}
+                    </select>
+                    <input type="number" name="quantidade" min="1" placeholder="Qtd de pecas por Kit" required>
+                    <button type="submit" style="background-color: #6c757d;">Vincular Peca ao Kit</button>
                 </form>
             </div>
             <div class="card">
-                <h2>2. 🛠️ Montar Kits</h2>
+                <h2>2. Montar Kits</h2>
                 <form action="/montar_kit" method="POST">
-                    <select name="kit_id" required><option value="">Qual kit montar?</option>{% for kit in kits %}<option value="{{ kit[0] }}">{{ kit[1] }}</option>{% endfor %}</select>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <select name="kit_id" required>
+                        <option value="">Qual kit montar?</option>
+                        {% for kit in kits %}<option value="{{ kit[0] }}">{{ kit[1] }}</option>{% endfor %}
+                    </select>
                     <input type="number" name="quantidade" min="1" placeholder="Quantos kits montar?" required>
-                    <button type="submit" class="btn-montar">Processar Montagem Física</button>
+                    <button type="submit" class="btn-montar">Processar Montagem Fisica</button>
                 </form>
             </div>
             <div class="card">
-                <h2>3. 📤 Saída de Kit</h2>
+                <h2>3. Saida de Kit</h2>
                 <form action="/retirar_kit" method="POST">
-                    <select name="kit_id" required><option value="">Qual kit retirar?</option>{% for kit in kits %}<option value="{{ kit[0] }}">{{ kit[1] }}</option>{% endfor %}</select>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <select name="kit_id" required>
+                        <option value="">Qual kit retirar?</option>
+                        {% for kit in kits %}<option value="{{ kit[0] }}">{{ kit[1] }}</option>{% endfor %}
+                    </select>
                     <input type="number" name="quantidade" min="1" placeholder="Quantidade" required>
                     <input type="text" name="solicitante" placeholder="Solicitante" required>
-                    <button type="submit" class="btn-retirar">Registrar Saída de Kit</button>
+                    <button type="submit" class="btn-retirar">Registrar Saida de Kit</button>
                 </form>
             </div>
         </div>
