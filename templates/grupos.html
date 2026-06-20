@@ -29,6 +29,7 @@
         <div class="card">
             <h2>➕ Criar Novo Grupo</h2>
             <form action="/gerenciar_grupos" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="text" name="nome_grupo" placeholder="Ex: Ferramentas" required>
                 <button type="submit">Salvar Grupo</button>
             </form>
