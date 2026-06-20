@@ -54,84 +54,74 @@ def logout():
 
 # === TELA INICIAL (COM FILTROS E PESQUISA) ===
 @app.route('/')
-def pagina_inicial():
+def index():
     if 'usuario_id' not in session:
         return redirect('/login')
 
     conexao = conectar_banco()
     cursor = conexao.cursor()
 
-    pesquisa = request.args.get('pesquisa', '')
-    grupo_filtro = request.args.get('grupo_filtro', '')
+    # 1. Pega os Grupos para o menu de filtros
+    cursor.execute("SELECT id, nome FROM Grupos ORDER BY nome")
+    grupos = cursor.fetchall()
+
+    # 2. Verifica se o usuário fez alguma pesquisa ou filtro
+    pesquisa_atual = request.args.get('pesquisa', '')
+    grupo_atual = request.args.get('grupo_filtro', '')
 
     query = '''
-        SELECT p.id, p.nome, p.quantidade_atual, p.estoque_minimo, p.estoque_maximo,
-               p.ponto_pedido, p.unidade_medida, g.nome, p.grupo_id, p.preco_unitario
-        FROM Produtos p
-        LEFT JOIN Grupos g ON p.grupo_id = g.id
+        SELECT p.id, p.nome, p.quantidade_atual, p.estoque_minimo, 
+               p.estoque_maximo, p.ponto_pedido, p.unidade_medida, 
+               g.nome, p.grupo_id, p.preco_unitario 
+        FROM Produtos p 
+        LEFT JOIN Grupos g ON p.grupo_id = g.id 
         WHERE 1=1
     '''
-    parametros = []
-    if pesquisa:
+    params = []
+
+    if pesquisa_atual:
         query += " AND p.nome ILIKE %s"
-        parametros.append(f"%{pesquisa}%")
-    if grupo_filtro:
+        params.append(f"%{pesquisa_atual}%")
+    if grupo_atual:
         query += " AND p.grupo_id = %s"
-        parametros.append(grupo_filtro)
+        params.append(grupo_atual)
 
-    cursor.execute(query, parametros)
-    lista_produtos = cursor.fetchall()
-
-    cursor.execute("SELECT * FROM Grupos ORDER BY nome")
-    lista_grupos = cursor.fetchall()
+    query += " ORDER BY p.nome"
+    
+    # 3. Executa a busca dos produtos
+    cursor.execute(query, params)
+    produtos = cursor.fetchall()
     conexao.close()
 
-    itens_comprar = []
-    for p in lista_produtos:
-        if p[2] <= p[5]:
-            itens_comprar.append({
-                'nome': p[1], 'atual': p[2],
-                'ponto': p[5], 'sugestao': p[4] - p[2], 'unidade': p[6]
-            })
-
-# === LÓGICA DE GERAÇÃO DE ALERTAS (BLINDAGEM MÁXIMA) ===
+    # 4. === LÓGICA DE GERAÇÃO DE ALERTAS (BLINDADA) ===
     alertas = []
     for p in produtos:
         try:
-            nome = str(p[1])
-            unidade = str(p[6]) if p[6] else 'un'
-            
-            # Forçamos a conversão matemática para evitar erros de texto ou valores vazios (None)
             qtd_atual = float(p[2] or 0)
             estoque_max = float(p[4] or 0)
             ponto_pedido = float(p[5] or 0)
-
-            # Só dispara se o item tiver um ponto de pedido configurado e a qtd bater no limite
+            
+            # Se o item precisa de reposição, entra na lista de Alertas
             if ponto_pedido > 0 and qtd_atual <= ponto_pedido:
                 sugestao = estoque_max - qtd_atual if estoque_max > qtd_atual else 1
-                
-                # Formata para não mostrar ".0" em números inteiros
                 alertas.append({
-                    'nome': nome,
+                    'nome': str(p[1]),
                     'atual': int(qtd_atual) if qtd_atual.is_integer() else qtd_atual,
                     'ponto': int(ponto_pedido) if ponto_pedido.is_integer() else ponto_pedido,
                     'sugestao': int(sugestao) if sugestao.is_integer() else sugestao,
-                    'unidade': unidade
+                    'unidade': str(p[6]) if p[6] else 'un'
                 })
         except Exception as e:
-            # Se um produto tiver dados corrompidos, o erro é impresso no terminal, mas a página não cai!
-            print(f"Erro ao calcular alerta para {p[1]}: {e}")
+            print(f"Erro ao gerar alerta para o produto {p[0]}: {e}")
             continue
 
-    return render_template(
-        'index.html',
-        produtos=lista_produtos,
-        grupos=lista_grupos,
-        alertas=itens_comprar,
-        pesquisa_atual=pesquisa,
-        grupo_atual=grupo_filtro
-    )
-
+    # 5. Envia todos os dados mastigados para a tela HTML sem pontinhos extras!
+    return render_template('index.html', 
+                           produtos=produtos, 
+                           grupos=grupos, 
+                           alertas=alertas, 
+                           pesquisa_atual=pesquisa_atual, 
+                           grupo_atual=grupo_atual)
 
 @app.route('/adicionar', methods=['POST'])
 def adicionar_produto():
