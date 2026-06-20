@@ -118,20 +118,18 @@
             <div class="grid-kits">
                 {% for kit in kits %}
                 <div class="kit-card">
-                    <div class="kit-header">
-                        <h3>{{ kit.nome }}</h3>
+                   <div class="kit-header">
+                        <div>
+                            <h3>{{ kit.nome }}</h3>
+                            {% if session.get('usuario_nivel') == 'admin' %}
+                                <a href="/excluir_kit/{{ kit.id }}" 
+                                   onclick="return confirm('Tem certeza que deseja excluir este kit e sua receita permanentemente?')" 
+                                   style="color: #dc3545; font-size: 12px; text-decoration: none; font-weight: bold; display: block; margin-top: 5px;">
+                                   ❌ Excluir Kit
+                                </a>
+                            {% endif %}
+                        </div>
                         <span class="badge">Estoque: {{ kit.quantidade_atual }}</span>
-                    </div>
-                    
-                    <div class="composicao-lista">
-                        <strong>Composição de 1 Kit:</strong>
-                        <ul>
-                            {% for item in kit.itens %}
-                                <li><b>{{ item.quantidade }} {{ item.unidade }}</b> - {{ item.nome }}</li>
-                            {% else %}
-                                <li><i>Nenhum item cadastrado nesta receita.</i></li>
-                            {% endfor %}
-                        </ul>
                     </div>
 
                     <div class="acoes-kit">
