@@ -94,27 +94,34 @@ def pagina_inicial():
                 'ponto': p[5], 'sugestao': p[4] - p[2], 'unidade': p[6]
             })
 
-# === LÓGICA DE GERAÇÃO DE ALERTAS (BLINDADA) ===
+# === LÓGICA DE GERAÇÃO DE ALERTAS (BLINDAGEM MÁXIMA) ===
     alertas = []
     for p in produtos:
-        nome = p[1]
-        # O "or 0" garante que se o campo no banco estiver vazio (None), o Python usa zero e não quebra!
-        qtd_atual = p[2] or 0
-        estoque_max = p[4] or 0
-        ponto_pedido = p[5] or 0
-        unidade = p[6] or 'un'
-
-        # Só dispara se o item tiver um ponto de pedido configurado (> 0) e a qtd bater no limite
-        if ponto_pedido > 0 and qtd_atual <= ponto_pedido:
-            sugestao = estoque_max - qtd_atual if estoque_max > qtd_atual else 1
+        try:
+            nome = str(p[1])
+            unidade = str(p[6]) if p[6] else 'un'
             
-            alertas.append({
-                'nome': nome,
-                'atual': qtd_atual,
-                'ponto': ponto_pedido,
-                'sugestao': sugestao,
-                'unidade': unidade
-            })
+            # Forçamos a conversão matemática para evitar erros de texto ou valores vazios (None)
+            qtd_atual = float(p[2] or 0)
+            estoque_max = float(p[4] or 0)
+            ponto_pedido = float(p[5] or 0)
+
+            # Só dispara se o item tiver um ponto de pedido configurado e a qtd bater no limite
+            if ponto_pedido > 0 and qtd_atual <= ponto_pedido:
+                sugestao = estoque_max - qtd_atual if estoque_max > qtd_atual else 1
+                
+                # Formata para não mostrar ".0" em números inteiros
+                alertas.append({
+                    'nome': nome,
+                    'atual': int(qtd_atual) if qtd_atual.is_integer() else qtd_atual,
+                    'ponto': int(ponto_pedido) if ponto_pedido.is_integer() else ponto_pedido,
+                    'sugestao': int(sugestao) if sugestao.is_integer() else sugestao,
+                    'unidade': unidade
+                })
+        except Exception as e:
+            # Se um produto tiver dados corrompidos, o erro é impresso no terminal, mas a página não cai!
+            print(f"Erro ao calcular alerta para {p[1]}: {e}")
+            continue
 
     return render_template(
         'index.html',
