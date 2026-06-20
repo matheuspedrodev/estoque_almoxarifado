@@ -527,6 +527,66 @@ def excluir_kit(id):
         
     return redirect('/kits')
 
+# === NOVA ROTA: EDITAR KIT (APENAS ADMIN) ===
+@app.route('/editar_kit/<int:id>', methods=['GET', 'POST'])
+def editar_kit(id):
+    if 'usuario_id' not in session:
+        return redirect('/login')
+    
+    # Trava de segurança para Admin
+    if session.get('usuario_nivel') != 'admin':
+        flash('Acesso negado. Apenas administradores podem editar kits.', 'erro')
+        return redirect('/kits')
+
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+
+    if request.method == 'POST':
+        nome_kit = request.form['nome_kit']
+        produtos_ids = request.form.getlist('produto_id[]')
+        quantidades = request.form.getlist('quantidade[]')
+
+        try:
+            # 1. Atualiza o nome do kit
+            cursor.execute("UPDATE Kits SET nome = %s WHERE id = %s", (nome_kit, id))
+            
+            # 2. Deleta a receita antiga por completo
+            cursor.execute("DELETE FROM Kit_Itens WHERE kit_id = %s", (id,))
+            
+            # 3. Insere a nova receita atualizada
+            for i in range(len(produtos_ids)):
+                p_id = produtos_ids[i]
+                qtd = quantidades[i]
+                if p_id and qtd and int(qtd) > 0:
+                    cursor.execute(
+                        "INSERT INTO Kit_Itens (kit_id, produto_id, quantidade_necessaria) VALUES (%s, %s, %s)",
+                        (id, p_id, qtd)
+                    )
+            conexao.commit()
+            flash('Kit atualizado com sucesso!', 'sucesso')
+        except Exception:
+            conexao.rollback()
+            flash('Erro ao tentar atualizar o kit.', 'erro')
+        finally:
+            conexao.close()
+            
+        return redirect('/kits')
+
+    else: # Quando a página carrega no método GET
+        # Pega os dados básicos do kit
+        cursor.execute("SELECT id, nome FROM Kits WHERE id = %s", (id,))
+        kit_atual = cursor.fetchone()
+
+        # Pega a receita atual para preencher os campos
+        cursor.execute("SELECT produto_id, quantidade_necessaria FROM Kit_Itens WHERE kit_id = %s", (id,))
+        itens_atuais = cursor.fetchall()
+
+        # Pega todos os produtos para a lista de opções
+        cursor.execute("SELECT id, nome FROM Produtos ORDER BY nome")
+        todos_produtos = cursor.fetchall()
+        conexao.close()
+
+        return render_template('editar_kit.html', kit=kit_atual, itens_atuais=itens_atuais, produtos=todos_produtos)
 
 # === NOVA ROTA: APAGAR REGISTRO DE TRANSAÇÃO/HISTÓRICO (APENAS ADMIN) ===
 @app.route('/excluir_transacao/<int:id>')

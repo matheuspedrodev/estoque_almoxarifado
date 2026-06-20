@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar Kit - Virtron Energia Solar</title>
+    <style>
+        :root {
+            --verde-escuro: #064e2e;
+            --verde-medio: #057a44;
+            --verde-vibrante: #47b549;
+            --fundo-cinza: #f4f6f5;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: var(--fundo-cinza); color: #333;}
+        
+        .header-virtron { background-color: var(--verde-escuro); color: white; padding: 15px 40px; display: flex; align-items: center; gap: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        .header-virtron img { max-height: 90px; }
+        .header-virtron h1 { margin: 0; font-size: 24px; font-weight: normal; border-left: 2px solid var(--verde-vibrante); padding-left: 15px;}
+        
+        .container { padding: 30px 40px; max-width: 800px; margin: 0 auto; }
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-top: 4px solid var(--verde-medio); margin-bottom: 30px;}
+        
+        .btn { padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; border: none; cursor: pointer; transition: 0.3s; font-size: 14px;}
+        .btn-voltar { background-color: white; color: var(--verde-escuro); border: 2px solid var(--verde-escuro); display: inline-block; margin-bottom: 20px;}
+        .btn-verde { background-color: var(--verde-vibrante); color: white; }
+        .btn-remover { background-color: #dc3545; color: white; padding: 8px 12px; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; color: var(--verde-escuro);}
+        .form-control { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        
+        .item-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .item-row select { flex: 2; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .item-row input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="header-virtron">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Virtron">
+        <h1>Edição de Kit</h1>
+    </div>
+
+    <div class="container">
+        <a href="/kits" class="btn btn-voltar">⬅ Voltar aos Kits</a>
+
+        <div class="card">
+            <h2>✏️ Editar Receita: {{ kit[1] }}</h2>
+            <form action="/editar_kit/{{ kit[0] }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                
+                <div class="form-group">
+                    <label>Nome do Kit</label>
+                    <input type="text" name="nome_kit" class="form-control" value="{{ kit[1] }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Composição do Kit</label>
+                    <div id="itens-container">
+                        {% for item_atual in itens_atuais %}
+                        <div class="item-row">
+                            <select name="produto_id[]" required>
+                                <option value="">Selecione um produto...</option>
+                                {% for produto in produtos %}
+                                    <option value="{{ produto[0] }}" {% if produto[0] == item_atual[0] %}selected{% endif %}>
+                                        {{ produto[1] }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <input type="number" name="quantidade[]" value="{{ item_atual[1] }}" min="1" required>
+                            <button type="button" class="btn btn-remover" onclick="removerLinha(this)">X</button>
+                        </div>
+                        {% else %}
+                        <div class="item-row">
+                            <select name="produto_id[]" required>
+                                <option value="">Selecione um produto...</option>
+                                {% for produto in produtos %}
+                                <option value="{{ produto[0] }}">{{ produto[1] }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="number" name="quantidade[]" placeholder="Qtd" min="1" required>
+                            <button type="button" class="btn btn-remover" onclick="removerLinha(this)">X</button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <button type="button" class="btn" style="background:#e0e0e0; color:#333; margin-top: 5px;" onclick="adicionarLinha()">+ Adicionar outro material</button>
+                </div>
+
+                <button type="submit" class="btn btn-verde" style="width: 100%; font-size: 16px; padding: 12px;">💾 Salvar Alterações</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function adicionarLinha() {
+            const container = document.getElementById('itens-container');
+            const primeiraLinha = container.querySelector('.item-row');
+            const novaLinha = primeiraLinha.cloneNode(true);
+            
+            novaLinha.querySelector('select').value = "";
+            novaLinha.querySelector('input').value = "";
+            
+            container.appendChild(novaLinha);
+        }
+
+        function removerLinha(botao) {
+            const container = document.getElementById('itens-container');
+            if (container.querySelectorAll('.item-row').length > 1) {
+                botao.parentElement.remove();
+            } else {
+                alert("O kit precisa ter pelo menos um material na composição.");
+            }
+        }
+    </script>
+</body>
+</html>
