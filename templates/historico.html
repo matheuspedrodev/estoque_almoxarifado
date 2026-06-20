@@ -8,6 +8,7 @@
             --verde-escuro: #064e2e;
             --verde-medio: #057a44;
             --verde-vibrante: #47b549;
+            --vermelho-alerta: #c92a2a;
             --fundo-cinza: #f4f6f5;
         }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: var(--fundo-cinza); color: #333;}
@@ -22,7 +23,17 @@
         .header-virtron h1 { margin: 0; font-size: 24px; font-weight: normal; border-left: 2px solid var(--verde-vibrante); padding-left: 15px;}
 
         .container { padding: 30px 40px; }
-        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-top: 4px solid var(--verde-medio);}
+        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 30px;}
+        
+        /* Tema Card Saídas */
+        .card-saidas { border-top: 4px solid var(--vermelho-alerta); }
+        .card-saidas h2 { color: var(--vermelho-alerta); margin-top: 0; }
+        .card-saidas th { background-color: var(--vermelho-alerta); }
+
+        /* Tema Card Entradas */
+        .card-entradas { border-top: 4px solid var(--verde-medio); }
+        .card-entradas h2 { color: var(--verde-escuro); margin-top: 0; }
+        .card-entradas th { background-color: var(--verde-escuro); }
         
         .botoes { margin-bottom: 20px; display: flex; gap: 10px; }
         .btn { padding: 10px 20px; text-decoration: none; color: white; border-radius: 4px; font-weight: bold; border: none; cursor: pointer; transition: 0.3s; font-size: 14px;}
@@ -32,9 +43,9 @@
         .btn-excel { background-color: #28a745; }
         .btn:hover { opacity: 0.8; }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
-        th, td { border: 1px solid #eee; padding: 12px; text-align: left; vertical-align: top;}
-        th { background-color: var(--verde-escuro); color: white; font-weight: normal;}
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+        th, td { border: 1px solid #eee; padding: 12px; text-align: left; vertical-align: middle;}
+        th { color: white; font-weight: normal;}
         
         ul.lista-materiais { margin: 0; padding-left: 20px; }
         ul.lista-materiais li { margin-bottom: 5px; }
@@ -45,27 +56,39 @@
 <body>
     <div class="header-virtron">
         <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Virtron">
-        <h1>Histórico de Protocolos</h1>
+        <h1>Histórico e Movimentações</h1>
     </div>
+    
     <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div style="padding: 15px; margin-bottom: 20px; border-radius: 4px; color: white; background-color: #28a745;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
         <div class="botoes">
             <a href="/" class="btn btn-voltar">⬅ Voltar ao Início</a>
             <button onclick="window.print()" class="btn btn-imprimir">🖨️ Imprimir</button>
             <a href="/exportar" class="btn btn-excel">📊 Exportar para Excel</a>
         </div>
-        <div class="card">
-            <h2>🗂️ Registro de Movimentações</h2>
+
+        <div class="card card-saidas">
+            <h2>📤 Registro de Saídas (Retiradas)</h2>
             <table>
                 <thead>
                     <tr>
-                        <th>Nº Protocolo</th>
-                        <th>Data e Hora</th>
-                        <th>Solicitante / Setor</th>
-                        <th>Materiais Retirados</th>
+                        <th width="15%">Nº Protocolo</th>
+                        <th width="20%">Data e Hora</th>
+                        <th width="25%">Solicitante / Setor</th>
+                        <th width="40%">Materiais Retirados</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for protocolo in protocols %}
+                    {% for protocolo in saidas %}
                     <tr>
                         <td><b>#{{ protocolo.codigo }}</b></td>
                         <td>{{ protocolo.data_hora }}</td>
@@ -73,27 +96,60 @@
                         <td>
                             <ul class="lista-materiais">
                                 {% for item in protocolo.itens %}
-                                <li style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <li style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
                                     <span><b>{{ item.quantidade }} un</b> - {{ item.material }}</span>
-                                    
                                     {% if session.get('usuario_nivel') == 'admin' %}
-                                        <a href="/excluir_transacao/{{ item.id }}" 
-                                           onclick="return confirm('Apagar este registro de movimentação permanente do banco de dados?')" 
-                                           style="text-decoration: none; font-size: 14px; margin-left: 10px;" 
-                                           title="Apagar Registro">
-                                           🗑️
-                                        </a>
+                                        <a href="/excluir_transacao/{{ item.id }}" onclick="return confirm('Apagar este registro permanentemente?')" style="text-decoration: none;" title="Apagar Registro">🗑️</a>
                                     {% endif %}
                                 </li>
                                 {% endfor %}
                             </ul>
                         </td>
                     </tr>
+                    {% else %}
+                    <tr><td colspan="4" style="text-align: center; padding: 20px;">Nenhuma retirada registrada.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+
+        <div class="card card-entradas">
+            <h2>📥 Registro de Entradas (Abastecimento)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th width="15%">Registro</th>
+                        <th width="20%">Data e Hora</th>
+                        <th width="25%">Fornecedor / Origem</th>
+                        <th width="40%">Material Adicionado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entrada in entradas %}
+                    <tr>
+                        <td><b>#{{ entrada.codigo }}</b></td>
+                        <td>{{ entrada.data_hora }}</td>
+                        <td>{{ entrada.solicitante }}</td>
+                        <td>
+                            <ul class="lista-materiais">
+                                {% for item in entrada.itens %}
+                                <li style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
+                                    <span style="color: var(--verde-escuro);"><b>+ {{ item.quantidade }} un</b> - {{ item.material }}</span>
+                                    {% if session.get('usuario_nivel') == 'admin' %}
+                                        <a href="/excluir_transacao/{{ item.id }}" onclick="return confirm('Apagar este registro permanentemente?')" style="text-decoration: none;" title="Apagar Registro">🗑️</a>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" style="text-align: center; padding: 20px;">Nenhuma entrada registrada.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
     </div>
 </body>
-
 </html>

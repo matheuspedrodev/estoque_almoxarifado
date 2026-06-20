@@ -247,6 +247,7 @@ def retirar_produto():
     return redirect('/')
 
 
+# === ROTA DO HISTÓRICO SEPARADO ===
 @app.route('/historico')
 def historico_protocolos():
     if 'usuario_id' not in session:
@@ -255,20 +256,20 @@ def historico_protocolos():
     conexao = conectar_banco()
     cursor = conexao.cursor()
     
-    # CORREÇÃO DO HORÁRIO: Forçamos o PostgreSQL a converter para o fuso de Brasília ('America/Sao_Paulo')
     cursor.execute('''
         SELECT 
             COALESCE(t.codigo_protocolo, CAST(t.id AS VARCHAR)), 
             TO_CHAR(t.data_hora AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI:SS'),
             CASE 
-                WHEN t.quantidade_retirada < 0 THEN CONCAT(p.nome, ' (🛒 ENTRADA DE ESTOQUE)')
+                WHEN t.quantidade_retirada < 0 THEN p.nome
                 WHEN t.produto_id IS NOT NULL THEN CONCAT(p.nome, ' (', COALESCE(p.unidade_medida, 'un'), ')')
                 WHEN t.kit_id IS NOT NULL THEN CONCAT(k.nome, ' (Kit Montado)')
                 ELSE 'Item Excluído ou Desconhecido'
             END as material,
             ABS(t.quantidade_retirada), 
             t.solicitante,
-            t.id
+            t.id,
+            CASE WHEN t.quantidade_retirada < 0 THEN 'ENTRADA' ELSE 'SAIDA' END as tipo
         FROM Transacoes t
         LEFT JOIN Produtos p ON t.produto_id = p.id
         LEFT JOIN Kits k ON t.kit_id = k.id
@@ -277,21 +278,39 @@ def historico_protocolos():
     transacoes_brutas = cursor.fetchall()
     conexao.close()
 
-    protocolos_agrupados = {}
+    protocolos_saida = {}
+    protocolos_entrada = {}
+
     for linha in transacoes_brutas:
-        codigo, data_hora, material, quantidade, solicitante, transacao_id = linha
-        if codigo not in protocolos_agrupados:
-            protocolos_agrupados[codigo] = {
-                'codigo': codigo, 'data_hora': data_hora,
-                'solicitante': solicitante, 'itens': []
-            }
-        protocolos_agrupados[codigo]['itens'].append({
-            'material': material, 
-            'quantidade': quantidade,
-            'id': transacao_id # Guardamos o ID individual para o admin poder apagar se quiser
-        })
+        codigo, data_hora, material, quantidade, solicitante, transacao_id, tipo = linha
         
-    return render_template('historico.html', protocols=list(protocolos_agrupados.values()))
+        # Como as Entradas tinham o código padrão "ENTRADA", nós usamos o ID único para não agrupar todas juntas
+        chave_agrupamento = codigo if tipo == 'SAIDA' else f"ENT_{transacao_id}"
+
+        if tipo == 'SAIDA':
+            if chave_agrupamento not in protocolos_saida:
+                protocolos_saida[chave_agrupamento] = {
+                    'codigo': codigo, 'data_hora': data_hora,
+                    'solicitante': solicitante, 'itens': []
+                }
+            protocolos_saida[chave_agrupamento]['itens'].append({'material': material, 'quantidade': quantidade, 'id': transacao_id})
+        else:
+            if chave_agrupamento not in protocolos_entrada:
+                protocolos_entrada[chave_agrupamento] = {
+                    'codigo': transacao_id, # Mostra o ID do banco como Nº de Registro
+                    'data_hora': data_hora,
+                    'solicitante': solicitante, 'itens': []
+                }
+            protocolos_entrada[chave_agrupamento]['itens'].append({'material': material, 'quantidade': quantidade, 'id': transacao_id})
+            
+    return render_template(
+        'historico.html', 
+        saidas=list(protocolos_saida.values()), 
+        entradas=list(protocolos_entrada.values())
+    )
+
+
+# === ROTA DO EXPORTAR EXCEL (AGORA COM COLUNA TIPO) ===
 @app.route('/exportar')
 def exportar_csv():
     if 'usuario_id' not in session:
@@ -302,9 +321,10 @@ def exportar_csv():
     cursor.execute('''
         SELECT 
             COALESCE(t.codigo_protocolo, CAST(t.id AS VARCHAR)), 
-            TO_CHAR(t.data_hora, 'DD/MM/YYYY HH24:MI:SS'),
+            TO_CHAR(t.data_hora AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI:SS'),
+            CASE WHEN t.quantidade_retirada < 0 THEN 'ENTRADA' ELSE 'SAIDA' END as tipo,
             CASE 
-                WHEN t.quantidade_retirada < 0 THEN CONCAT(p.nome, ' (ENTRADA DE ESTOQUE)')
+                WHEN t.quantidade_retirada < 0 THEN p.nome
                 WHEN t.produto_id IS NOT NULL THEN CONCAT(p.nome, ' (', COALESCE(p.unidade_medida, 'un'), ')')
                 WHEN t.kit_id IS NOT NULL THEN CONCAT(k.nome, ' (Kit Montado)')
                 ELSE 'Item Excluído ou Desconhecido'
@@ -321,14 +341,14 @@ def exportar_csv():
     
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
-    writer.writerow(['Protocolo', 'Data e Hora', 'Material Retirado', 'Quantidade', 'Solicitante'])
+    writer.writerow(['Nº Registro/Protocolo', 'Data e Hora', 'Tipo da Movimentacao', 'Material', 'Quantidade', 'Solicitante / Fornecedor'])
     for t in transacoes:
         writer.writerow(t)
         
     response = Response(output.getvalue(), mimetype='text/csv')
     response.headers["Content-Disposition"] = "attachment; filename=historico_almoxarifado.csv"
     return response
-
+    
 @app.route('/kits')
 def gerenciar_kits():
     if 'usuario_id' not in session:
