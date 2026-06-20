@@ -254,13 +254,20 @@ def historico_protocolos():
 
     conexao = conectar_banco()
     cursor = conexao.cursor()
+    
+    # Usamos TO_CHAR para converter a data em texto e CONCAT para evitar o erro do NULL
     cursor.execute('''
-        SELECT COALESCE(t.codigo_protocolo, CAST(t.id AS VARCHAR)), t.data_hora,
-               CASE WHEN t.quantidade_retirada < 0
-                    THEN COALESCE(p.nome, '') || ' (ENTRADA DE ESTOQUE)'
-                    ELSE COALESCE(p.nome || ' (' || p.unidade_medida || ')', k.nome || ' (Kit Montado)')
-               END,
-               ABS(t.quantidade_retirada), t.solicitante
+        SELECT 
+            COALESCE(t.codigo_protocolo, CAST(t.id AS VARCHAR)), 
+            TO_CHAR(t.data_hora, 'DD/MM/YYYY HH24:MI:SS'),
+            CASE 
+                WHEN t.quantidade_retirada < 0 THEN CONCAT(p.nome, ' (🛒 ENTRADA DE ESTOQUE)')
+                WHEN t.produto_id IS NOT NULL THEN CONCAT(p.nome, ' (', COALESCE(p.unidade_medida, 'un'), ')')
+                WHEN t.kit_id IS NOT NULL THEN CONCAT(k.nome, ' (Kit Montado)')
+                ELSE 'Item Excluído ou Desconhecido'
+            END as material,
+            ABS(t.quantidade_retirada), 
+            t.solicitante
         FROM Transacoes t
         LEFT JOIN Produtos p ON t.produto_id = p.id
         LEFT JOIN Kits k ON t.kit_id = k.id
@@ -278,8 +285,8 @@ def historico_protocolos():
                 'solicitante': solicitante, 'itens': []
             }
         protocolos_agrupados[codigo]['itens'].append({'material': material, 'quantidade': quantidade})
+        
     return render_template('historico.html', protocols=list(protocolos_agrupados.values()))
-
 
 @app.route('/exportar')
 def exportar_csv():
@@ -289,9 +296,17 @@ def exportar_csv():
     conexao = conectar_banco()
     cursor = conexao.cursor()
     cursor.execute('''
-        SELECT COALESCE(t.codigo_protocolo, CAST(t.id AS VARCHAR)), t.data_hora,
-               COALESCE(p.nome || ' (' || p.unidade_medida || ')', k.nome || ' (Kit Montado)'),
-               t.quantidade_retirada, t.solicitante
+        SELECT 
+            COALESCE(t.codigo_protocolo, CAST(t.id AS VARCHAR)), 
+            TO_CHAR(t.data_hora, 'DD/MM/YYYY HH24:MI:SS'),
+            CASE 
+                WHEN t.quantidade_retirada < 0 THEN CONCAT(p.nome, ' (ENTRADA DE ESTOQUE)')
+                WHEN t.produto_id IS NOT NULL THEN CONCAT(p.nome, ' (', COALESCE(p.unidade_medida, 'un'), ')')
+                WHEN t.kit_id IS NOT NULL THEN CONCAT(k.nome, ' (Kit Montado)')
+                ELSE 'Item Excluído ou Desconhecido'
+            END,
+            ABS(t.quantidade_retirada), 
+            t.solicitante
         FROM Transacoes t
         LEFT JOIN Produtos p ON t.produto_id = p.id
         LEFT JOIN Kits k ON t.kit_id = k.id
@@ -299,15 +314,16 @@ def exportar_csv():
     ''')
     transacoes = cursor.fetchall()
     conexao.close()
+    
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
     writer.writerow(['Protocolo', 'Data e Hora', 'Material Retirado', 'Quantidade', 'Solicitante'])
     for t in transacoes:
         writer.writerow(t)
+        
     response = Response(output.getvalue(), mimetype='text/csv')
     response.headers["Content-Disposition"] = "attachment; filename=historico_almoxarifado.csv"
     return response
-
 
 @app.route('/kits')
 def gerenciar_kits():
