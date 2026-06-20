@@ -94,6 +94,29 @@ def pagina_inicial():
                 'ponto': p[5], 'sugestao': p[4] - p[2], 'unidade': p[6]
             })
 
+# === LÓGICA DE GERAÇÃO DE ALERTAS ===
+    alertas = []
+    for p in produtos:
+        # Baseado no seu banco: p[1]=nome, p[2]=atual, p[4]=maximo, p[5]=ponto_pedido, p[6]=unidade
+        nome = p[1]
+        qtd_atual = p[2]
+        estoque_max = p[4]
+        ponto_pedido = p[5]
+        unidade = p[6]
+
+        # Se a quantidade atual for menor ou igual ao ponto de pedido, disparamos o alerta!
+        if qtd_atual <= ponto_pedido:
+            # A sugestão de compra é o quanto falta para encher até o Estoque Máximo
+            sugestao = estoque_max - qtd_atual if estoque_max > qtd_atual else 1
+            
+            alertas.append({
+                'nome': nome,
+                'atual': qtd_atual,
+                'ponto': ponto_pedido,
+                'sugestao': sugestao,
+                'unidade': unidade
+            })
+
     return render_template(
         'index.html',
         produtos=lista_produtos,
