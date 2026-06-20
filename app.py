@@ -93,19 +93,24 @@ def index():
     produtos = cursor.fetchall()
     conexao.close()
 
-    # 4. === LÓGICA DE GERAÇÃO DE ALERTAS (CORREÇÃO DO ZERO) ===
+    # 4. === LÓGICA DE GERAÇÃO DE ALERTAS (TITÂNIO) ===
     alertas = []
     for p in produtos:
         try:
-            qtd_atual = float(p[2] or 0)
-            estoque_min = float(p[3] or 0)
-            estoque_max = float(p[4] or 0)
-            ponto_pedido = float(p[5] or 0)
+            # Essa micro-função garante que textos vazios, None ou espaços virem Zero absoluto
+            def pega_numero(valor):
+                if valor is None or str(valor).strip() == '':
+                    return 0.0
+                return float(valor)
+
+            qtd_atual = pega_numero(p[2])
+            estoque_min = pega_numero(p[3])
+            estoque_max = pega_numero(p[4])
+            ponto_pedido = pega_numero(p[5])
             
-            # Gatilho: Usa o Ponto de Pedido. Se não tiver, usa o Estoque Mínimo.
             gatilho = ponto_pedido if ponto_pedido > 0 else estoque_min
             
-            # A MUDANÇA ESTÁ AQUI: Agora ele alerta mesmo se o gatilho for 0 e a qtd bater em 0!
+            # Condição: Se a qtd atual bater no gatilho (mesmo que ambos sejam zero)
             if qtd_atual <= gatilho:
                 sugestao = estoque_max - qtd_atual if estoque_max > qtd_atual else 1
                 alertas.append({
@@ -116,8 +121,11 @@ def index():
                     'unidade': str(p[6]) if p[6] else 'un'
                 })
         except Exception as e:
-            print(f"Erro ao gerar alerta para o produto {p[0]}: {e}")
-            continue
+            # Se der erro grave, ele vai criar um alerta FALSO avisando qual item quebrou!
+            alertas.append({
+                'nome': f"⚠️ ERRO MATEMÁTICO NO ITEM ID {p[0]}",
+                'atual': 0, 'ponto': 0, 'sugestao': 0, 'unidade': 'ERRO'
+            })
 
     # 5. Envia todos os dados mastigados para a tela HTML sem pontinhos extras!
     return render_template('index.html', 
