@@ -108,6 +108,14 @@ def pagina_inicial():
 def adicionar_produto():
     if 'usuario_id' not in session:
         return redirect('/login')
+        
+    # --- TRAVA DE ADMIN AQUI ---
+    if session.get('usuario_nivel') != 'admin':
+        flash('Acesso negado. Apenas administradores podem cadastrar itens.', 'erro')
+        return redirect('/')
+    # ---------------------------
+
+    # ... aqui continua o seu código de (nome = request.form['nome']...)
 
     nome = request.form['nome']
     quantidade = request.form['quantidade']
@@ -134,6 +142,14 @@ def adicionar_produto():
 def adicionar_estoque():
     if 'usuario_id' not in session:
         return redirect('/login')
+        
+    # --- TRAVA DE ADMIN AQUI ---
+    if session.get('usuario_nivel') != 'admin':
+        flash('Acesso negado. Apenas administradores podem dar entrada no estoque.', 'erro')
+        return redirect('/')
+    # ---------------------------
+
+    # ... aqui continua o seu código de (produto_id = request.form['produto_id']...)
 
     produto_id = request.form['produto_id']
     qtd_entrada = int(request.form['quantidade_entrada'])
@@ -348,7 +364,7 @@ def exportar_csv():
     response = Response(output.getvalue(), mimetype='text/csv')
     response.headers["Content-Disposition"] = "attachment; filename=historico_almoxarifado.csv"
     return response
-    
+
 @app.route('/kits')
 def gerenciar_kits():
     if 'usuario_id' not in session:

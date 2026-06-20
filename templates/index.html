@@ -72,7 +72,7 @@
             {% endif %}
         {% endwith %}
 
-        {% if alertas %}
+        {% if alertas and session['usuario_nivel'] == 'admin' %}
         <div class="card-alerta">
             <h2>&#9888; Itens que precisam de reposicao ({{ alertas|length }})</h2>
             <table class="tabela-alerta">
@@ -99,6 +99,8 @@
         {% endif %}
 
         <div class="grid-container">
+            
+            {% if session['usuario_nivel'] == 'admin' %}
             <div class="card">
                 <h2>Novo Cadastro (Item Novo)</h2>
                 <small style="color: #666; display:block; margin-bottom: 10px;">Use apenas para itens que NUNCA foram cadastrados no sistema.</small>
@@ -150,6 +152,7 @@
                     <button type="submit" style="background-color: #28a745;">Confirmar Entrada</button>
                 </form>
             </div>
+            {% endif %}
 
             <div class="card" style="border-top-color: #d32f2f;">
                 <h2>Registrar Retirada (Saida)</h2>
@@ -200,13 +203,19 @@
                         <th>ID</th>
                         <th>Grupo</th>
                         <th>Material</th>
-                        <th>Valor Unitario</th>
+                        {% if session['usuario_nivel'] == 'admin' %}
+                            <th>Valor Unitario</th>
+                        {% endif %}
                         <th>Qtd Atual</th>
-                        <th>Total em Estoque</th>
+                        {% if session['usuario_nivel'] == 'admin' %}
+                            <th>Total em Estoque</th>
+                        {% endif %}
                         <th>Estoque Min</th>
                         <th>Estoque Max</th>
                         <th>Ponto Pedido</th>
-                        <th>Acoes</th>
+                        {% if session['usuario_nivel'] == 'admin' %}
+                            <th>Acoes</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -215,20 +224,31 @@
                         <td>{{ produto[0] }}</td>
                         <td><span style="background: #e0e0e0; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #444;">{{ produto[7] if produto[7] else 'Sem Grupo' }}</span></td>
                         <td>{{ produto[1] }}</td>
-                        <td style="{% if not produto[9] or produto[9] == 0 %} color: #d32f2f; font-weight: bold; {% endif %}">
-                            R$ {{ "{:,.2f}".format(produto[9] if produto[9] is not none else 0).replace(",", "v").replace(".", ",").replace("v", ".") }}
-                        </td>
+                        
+                        {% if session['usuario_nivel'] == 'admin' %}
+                            <td style="{% if not produto[9] or produto[9] == 0 %} color: #d32f2f; font-weight: bold; {% endif %}">
+                                R$ {{ "{:,.2f}".format(produto[9] if produto[9] is not none else 0).replace(",", "v").replace(".", ",").replace("v", ".") }}
+                            </td>
+                        {% endif %}
+                        
                         <td><b>{{ produto[2] }}</b> {{ produto[6] }}</td>
-                        <td>
-                            <b>R$ {{ "{:,.2f}".format((produto[2] * (produto[9] if produto[9] is not none else 0))).replace(",", "v").replace(".", ",").replace("v", ".") }}</b>
-                        </td>
+                        
+                        {% if session['usuario_nivel'] == 'admin' %}
+                            <td>
+                                <b>R$ {{ "{:,.2f}".format((produto[2] * (produto[9] if produto[9] is not none else 0))).replace(",", "v").replace(".", ",").replace("v", ".") }}</b>
+                            </td>
+                        {% endif %}
+                        
                         <td>{{ produto[3] }} {{ produto[6] }}</td>
                         <td>{{ produto[4] }} {{ produto[6] }}</td>
                         <td>{{ produto[5] }} {{ produto[6] }}</td>
-                        <td>
-                            <a href="/editar/{{ produto[0] }}" style="text-decoration: none; font-size: 18px;" title="Editar">&#9999;</a>
-                            <a href="/excluir/{{ produto[0] }}" style="text-decoration: none; font-size: 18px; margin-left: 10px;" title="Excluir" onclick="return confirm('Tem certeza?');">&#128465;</a>
-                        </td>
+                        
+                        {% if session['usuario_nivel'] == 'admin' %}
+                            <td>
+                                <a href="/editar/{{ produto[0] }}" style="text-decoration: none; font-size: 18px;" title="Editar">&#9999;</a>
+                                <a href="/excluir/{{ produto[0] }}" style="text-decoration: none; font-size: 18px; margin-left: 10px;" title="Excluir" onclick="return confirm('Tem certeza?');">&#128465;</a>
+                            </td>
+                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>
