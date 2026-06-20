@@ -72,7 +72,7 @@
             {% endif %}
         {% endwith %}
 
-        {% if alertas and session['usuario_nivel'] == 'admin' %}
+        {% if alertas %}
         <div class="card-alerta">
             <h2>&#9888; Itens que precisam de reposicao ({{ alertas|length }})</h2>
             <table class="tabela-alerta">

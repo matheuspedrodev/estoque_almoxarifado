@@ -93,7 +93,7 @@ def index():
     produtos = cursor.fetchall()
     conexao.close()
 
-    # 4. === LÓGICA DE GERAÇÃO DE ALERTAS (BLINDADA E INTELIGENTE) ===
+    # 4. === LÓGICA DE GERAÇÃO DE ALERTAS (CORREÇÃO DO ZERO) ===
     alertas = []
     for p in produtos:
         try:
@@ -102,11 +102,11 @@ def index():
             estoque_max = float(p[4] or 0)
             ponto_pedido = float(p[5] or 0)
             
-            # GATILHO INTELIGENTE: Usa o Ponto de Pedido. Se não tiver, usa o Estoque Mínimo!
+            # Gatilho: Usa o Ponto de Pedido. Se não tiver, usa o Estoque Mínimo.
             gatilho = ponto_pedido if ponto_pedido > 0 else estoque_min
             
-            # Se o item bateu no limite, entra na lista de Alertas
-            if gatilho > 0 and qtd_atual <= gatilho:
+            # A MUDANÇA ESTÁ AQUI: Agora ele alerta mesmo se o gatilho for 0 e a qtd bater em 0!
+            if qtd_atual <= gatilho:
                 sugestao = estoque_max - qtd_atual if estoque_max > qtd_atual else 1
                 alertas.append({
                     'nome': str(p[1]),
