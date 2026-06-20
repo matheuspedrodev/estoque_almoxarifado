@@ -118,7 +118,8 @@
             <div class="grid-kits">
                 {% for kit in kits %}
                 <div class="kit-card">
-                   <div class="kit-header">
+                    
+                    <div class="kit-header">
                         <div>
                             <h3>{{ kit.nome }}</h3>
                             {% if session.get('usuario_nivel') == 'admin' %}
@@ -130,6 +131,17 @@
                             {% endif %}
                         </div>
                         <span class="badge">Estoque: {{ kit.quantidade_atual }}</span>
+                    </div>
+                    
+                    <div class="composicao-lista">
+                        <strong>Composição de 1 Kit:</strong>
+                        <ul>
+                            {% for item in kit.itens %}
+                                <li><b>{{ item.quantidade }} {{ item.unidade }}</b> - {{ item.nome }}</li>
+                            {% else %}
+                                <li><i>Nenhum item cadastrado nesta receita.</i></li>
+                            {% endfor %}
+                        </ul>
                     </div>
 
                     <div class="acoes-kit">
@@ -150,6 +162,7 @@
                             <button type="submit" class="btn-verde" style="width: 100%;">Registrar Retirada</button>
                         </form>
                     </div>
+
                 </div>
                 {% else %}
                 <p>Nenhum kit cadastrado no sistema ainda.</p>
