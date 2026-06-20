@@ -332,11 +332,38 @@ def gerenciar_kits():
 
     conexao = conectar_banco()
     cursor = conexao.cursor()
-    cursor.execute("SELECT id, nome, quantidade_atual FROM Kits")
-    lista_kits = cursor.fetchall()
+
+    # 1. Busca todos os kits
+    cursor.execute("SELECT id, nome, quantidade_atual FROM Kits ORDER BY nome")
+    lista_kits_bruta = cursor.fetchall()
+
+    # 2. Busca os ingredientes de TODOS os kits de uma vez (Evita sobrecarregar o banco)
+    cursor.execute('''
+        SELECT ki.kit_id, p.nome, ki.quantidade_necessaria, COALESCE(p.unidade_medida, 'un')
+        FROM Kit_Itens ki
+        JOIN Produtos p ON ki.produto_id = p.id
+    ''')
+    composicao_bruta = cursor.fetchall()
+
+    # 3. Monta um "pacote" organizado juntando o kit com os seus itens
+    lista_kits = []
+    for kit in lista_kits_bruta:
+        itens_deste_kit = [
+            {'nome': comp[1], 'quantidade': comp[2], 'unidade': comp[3]}
+            for comp in composicao_bruta if comp[0] == kit[0]
+        ]
+        lista_kits.append({
+            'id': kit[0],
+            'nome': kit[1],
+            'quantidade_atual': kit[2],
+            'itens': itens_deste_kit
+        })
+
     cursor.execute("SELECT id, nome FROM Produtos ORDER BY nome")
     lista_produtos = cursor.fetchall()
     conexao.close()
+
+    # Agora enviamos a lista montada e rica em detalhes para o HTML
     return render_template('kits.html', kits=lista_kits, produtos=lista_produtos)
 
 
@@ -344,12 +371,35 @@ def gerenciar_kits():
 def criar_kit():
     if 'usuario_id' not in session:
         return redirect('/login')
+        
     nome_kit = request.form['nome_kit']
+    # O getlist pega todos os produtos e quantidades enviados na mesma tela
+    produtos_ids = request.form.getlist('produto_id[]')
+    quantidades = request.form.getlist('quantidade[]')
+
     conexao = conectar_banco()
     cursor = conexao.cursor()
-    cursor.execute("INSERT INTO Kits (nome, quantidade_atual) VALUES (%s, 0)", (nome_kit,))
-    conexao.commit()
-    conexao.close()
+
+    try:
+        # Cria o kit e já "pega" o ID gerado pelo PostgreSQL na mesma hora
+        cursor.execute("INSERT INTO Kits (nome, quantidade_atual) VALUES (%s, 0) RETURNING id", (nome_kit,))
+        kit_id = cursor.fetchone()[0]
+
+        # Faz um laço de repetição para inserir todos os ingredientes do kit de uma vez
+        for i in range(len(produtos_ids)):
+            p_id = produtos_ids[i]
+            qtd = quantidades[i]
+            if p_id and qtd and int(qtd) > 0:
+                cursor.execute(
+                    "INSERT INTO Kit_Itens (kit_id, produto_id, quantidade_necessaria) VALUES (%s, %s, %s)",
+                    (kit_id, p_id, qtd)
+                )
+        conexao.commit()
+    except Exception as e:
+        conexao.rollback()
+    finally:
+        conexao.close()
+
     return redirect('/kits')
 
 
