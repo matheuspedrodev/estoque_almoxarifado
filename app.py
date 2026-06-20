@@ -94,19 +94,18 @@ def pagina_inicial():
                 'ponto': p[5], 'sugestao': p[4] - p[2], 'unidade': p[6]
             })
 
-# === LÓGICA DE GERAÇÃO DE ALERTAS ===
+# === LÓGICA DE GERAÇÃO DE ALERTAS (BLINDADA) ===
     alertas = []
     for p in produtos:
-        # Baseado no seu banco: p[1]=nome, p[2]=atual, p[4]=maximo, p[5]=ponto_pedido, p[6]=unidade
         nome = p[1]
-        qtd_atual = p[2]
-        estoque_max = p[4]
-        ponto_pedido = p[5]
-        unidade = p[6]
+        # O "or 0" garante que se o campo no banco estiver vazio (None), o Python usa zero e não quebra!
+        qtd_atual = p[2] or 0
+        estoque_max = p[4] or 0
+        ponto_pedido = p[5] or 0
+        unidade = p[6] or 'un'
 
-        # Se a quantidade atual for menor ou igual ao ponto de pedido, disparamos o alerta!
-        if qtd_atual <= ponto_pedido:
-            # A sugestão de compra é o quanto falta para encher até o Estoque Máximo
+        # Só dispara se o item tiver um ponto de pedido configurado (> 0) e a qtd bater no limite
+        if ponto_pedido > 0 and qtd_atual <= ponto_pedido:
             sugestao = estoque_max - qtd_atual if estoque_max > qtd_atual else 1
             
             alertas.append({
