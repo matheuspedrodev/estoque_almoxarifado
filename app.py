@@ -255,11 +255,11 @@ def historico_protocolos():
     conexao = conectar_banco()
     cursor = conexao.cursor()
     
-    # Usamos TO_CHAR para converter a data em texto e CONCAT para evitar o erro do NULL
+    # CORREÇÃO DO HORÁRIO: Forçamos o PostgreSQL a converter para o fuso de Brasília ('America/Sao_Paulo')
     cursor.execute('''
         SELECT 
             COALESCE(t.codigo_protocolo, CAST(t.id AS VARCHAR)), 
-            TO_CHAR(t.data_hora, 'DD/MM/YYYY HH24:MI:SS'),
+            TO_CHAR(t.data_hora AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI:SS'),
             CASE 
                 WHEN t.quantidade_retirada < 0 THEN CONCAT(p.nome, ' (🛒 ENTRADA DE ESTOQUE)')
                 WHEN t.produto_id IS NOT NULL THEN CONCAT(p.nome, ' (', COALESCE(p.unidade_medida, 'un'), ')')
@@ -267,7 +267,8 @@ def historico_protocolos():
                 ELSE 'Item Excluído ou Desconhecido'
             END as material,
             ABS(t.quantidade_retirada), 
-            t.solicitante
+            t.solicitante,
+            t.id
         FROM Transacoes t
         LEFT JOIN Produtos p ON t.produto_id = p.id
         LEFT JOIN Kits k ON t.kit_id = k.id
@@ -278,16 +279,19 @@ def historico_protocolos():
 
     protocolos_agrupados = {}
     for linha in transacoes_brutas:
-        codigo, data_hora, material, quantidade, solicitante = linha
+        codigo, data_hora, material, quantidade, solicitante, transacao_id = linha
         if codigo not in protocolos_agrupados:
             protocolos_agrupados[codigo] = {
                 'codigo': codigo, 'data_hora': data_hora,
                 'solicitante': solicitante, 'itens': []
             }
-        protocolos_agrupados[codigo]['itens'].append({'material': material, 'quantidade': quantidade})
+        protocolos_agrupados[codigo]['itens'].append({
+            'material': material, 
+            'quantidade': quantidade,
+            'id': transacao_id # Guardamos o ID individual para o admin poder apagar se quiser
+        })
         
     return render_template('historico.html', protocols=list(protocolos_agrupados.values()))
-
 @app.route('/exportar')
 def exportar_csv():
     if 'usuario_id' not in session:
@@ -460,6 +464,7 @@ def montar_kit():
     return redirect('/kits')
 
 
+# === CORREÇÃO DA ROTA DE RETIRADA DE KIT (Redirecionar para /kits ao invés de /historico) ===
 @app.route('/retirar_kit', methods=['POST'])
 def retirar_kit():
     if 'usuario_id' not in session:
@@ -468,6 +473,7 @@ def retirar_kit():
     qtd_retirar = int(request.form['quantidade'])
     solicitante = request.form['solicitante']
     codigo_protocolo = datetime.now().strftime("%Y%m%d%H%M%S")
+    
     conexao = conectar_banco()
     cursor = conexao.cursor()
 
@@ -489,6 +495,54 @@ def retirar_kit():
     )
     conexao.commit()
     conexao.close()
+    
+    # CORREÇÃO AQUI: Agora retorna para a própria página de kits com mensagem de sucesso
+    flash('Retirada de kit registrada com sucesso!', 'sucesso')
+    return redirect('/kits')
+
+
+# === NOVA ROTA: EXCLUIR KIT (APENAS ADMIN) ===
+@app.route('/excluir_kit/<int:id>')
+def excluir_kit(id):
+    if 'usuario_id' not in session:
+        return redirect('/login')
+    if session.get('usuario_nivel') != 'admin':
+        flash('Acesso negado. Apenas administradores podem excluir kits.', 'erro')
+        return redirect('/kits')
+
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+    try:
+        # Primeiro removemos as dependências da receita do kit para não quebrar a chave estrangeira
+        cursor.execute("DELETE FROM Kit_Itens WHERE kit_id = %s", (id,))
+        # Depois apagamos o kit
+        cursor.execute("DELETE FROM Kits WHERE id = %s", (id,))
+        conexao.commit()
+        flash('Kit e sua receita foram excluídos permanentemente.', 'sucesso')
+    except Exception:
+        conexao.rollback()
+        flash('Erro ao tentar excluir o kit.', 'erro')
+    finally:
+        conexao.close()
+        
+    return redirect('/kits')
+
+
+# === NOVA ROTA: APAGAR REGISTRO DE TRANSAÇÃO/HISTÓRICO (APENAS ADMIN) ===
+@app.route('/excluir_transacao/<int:id>')
+def excluir_transacao(id):
+    if 'usuario_id' not in session:
+        return redirect('/login')
+    if session.get('usuario_nivel') != 'admin':
+        return "Acesso negado.", 403
+
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+    cursor.execute("DELETE FROM Transacoes WHERE id = %s", (id,))
+    conexao.commit()
+    conexao.close()
+    
+    flash('Registro de movimentação apagado do histórico.', 'sucesso')
     return redirect('/historico')
 
 
