@@ -93,21 +93,25 @@ def index():
     produtos = cursor.fetchall()
     conexao.close()
 
-    # 4. === LÓGICA DE GERAÇÃO DE ALERTAS (BLINDADA) ===
+    # 4. === LÓGICA DE GERAÇÃO DE ALERTAS (BLINDADA E INTELIGENTE) ===
     alertas = []
     for p in produtos:
         try:
             qtd_atual = float(p[2] or 0)
+            estoque_min = float(p[3] or 0)
             estoque_max = float(p[4] or 0)
             ponto_pedido = float(p[5] or 0)
             
-            # Se o item precisa de reposição, entra na lista de Alertas
-            if ponto_pedido > 0 and qtd_atual <= ponto_pedido:
+            # GATILHO INTELIGENTE: Usa o Ponto de Pedido. Se não tiver, usa o Estoque Mínimo!
+            gatilho = ponto_pedido if ponto_pedido > 0 else estoque_min
+            
+            # Se o item bateu no limite, entra na lista de Alertas
+            if gatilho > 0 and qtd_atual <= gatilho:
                 sugestao = estoque_max - qtd_atual if estoque_max > qtd_atual else 1
                 alertas.append({
                     'nome': str(p[1]),
                     'atual': int(qtd_atual) if qtd_atual.is_integer() else qtd_atual,
-                    'ponto': int(ponto_pedido) if ponto_pedido.is_integer() else ponto_pedido,
+                    'ponto': int(gatilho) if gatilho.is_integer() else gatilho,
                     'sugestao': int(sugestao) if sugestao.is_integer() else sugestao,
                     'unidade': str(p[6]) if p[6] else 'un'
                 })
