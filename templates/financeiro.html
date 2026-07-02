@@ -94,8 +94,9 @@
         const ctx = document.getElementById('graficoMovimentacao').getContext('2d');
         
         // Recebe os dados processados do Python
-        const labels = {{ graf_labels | tojson }};
-        const valores = {{ graf_valores | tojson }};
+       // Puxa os dados da tabela de patrimônio em vez da movimentação
+        const labels = [{% for item in valores_categoria %}"{{ item.grupo }}",{% endfor %}];
+        const valores = [{% for item in valores_categoria %}{{ item.total }},{% endfor %}];
         
         new Chart(ctx, {
             type: 'bar',
