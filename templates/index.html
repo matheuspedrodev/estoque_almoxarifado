@@ -17,6 +17,7 @@
         .card-alerta { background-color: #fff3cd; border-left: 6px solid #ffc107; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
         .card-alerta h2 { color: #856404; }
         .card-erro { background: #ffebee; border-left: 6px solid #d32f2f; padding: 15px 20px; border-radius: 4px; margin-bottom: 20px; font-weight: bold; color: #c62828; }
+        .card-sucesso { background: #e8f5e9; border-left: 6px solid #4caf50; padding: 15px 20px; border-radius: 4px; margin-bottom: 20px; font-weight: bold; color: #2e7d32; }
         .tabela-alerta { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
         .tabela-alerta th { background-color: #ffc107; color: #333; }
         .form-group { margin-bottom: 15px; }
@@ -70,7 +71,11 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="card-erro">&#9888; {{ message }}</div>
+                    {% if category == 'sucesso' %}
+                        <div class="card-sucesso">&#10004; {{ message }}</div>
+                    {% else %}
+                        <div class="card-erro">&#9888; {{ message }}</div>
+                    {% endif %}
                 {% endfor %}
             {% endif %}
         {% endwith %}

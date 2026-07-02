@@ -29,7 +29,6 @@ def exportar_estoque():
     conexao = conectar_banco()
     cursor = conexao.cursor()
 
-    # Query robusta para garantir que traga todos os dados
     cursor.execute('''
         SELECT p.id, p.nome, g.nome, p.quantidade_atual, p.unidade_medida, p.preco_unitario, p.estoque_separado
         FROM Produtos p
@@ -39,40 +38,42 @@ def exportar_estoque():
     produtos = cursor.fetchall()
     conexao.close()
 
-    # Prepara o arquivo na memória
-    si = StringIO()
+    # MONTANDO O CSV DIRETAMENTE EM TEXTO (Sem risco de vir em branco)
+    linhas = []
     
-    # Usa ponto e vírgula para o Excel brasileiro separar as colunas perfeitamente
-    writer = csv.writer(si, delimiter=';')
-    
-    # Linha de cabeçalho
-    writer.writerow(['ID', 'Tipo de Estoque', 'Grupo', 'Equipamento/Material', 'Qtd Atual', 'Unidade', 'Valor Unitário (R$)', 'Total em Estoque (R$)'])
+    # 1. Coloca a linha de cabeçalho
+    linhas.append("ID;Tipo de Estoque;Grupo;Equipamento/Material;Qtd Atual;Unidade;Valor Unitario (R$);Total em Estoque (R$)")
 
-    # Preenche as linhas
+    # 2. Preenche os dados
     for p in produtos:
         tipo = "Módulos/Inversores" if p[6] else "Almoxarifado Geral"
-        grupo = p[2] if p[2] else "Sem Grupo"
+        grupo = str(p[2]) if p[2] else "Sem Grupo"
+        nome = str(p[1])
+        unidade = str(p[4]) if p[4] else "UN"
         
         qtd = float(p[3] or 0)
         valor_uni = float(p[5] or 0)
         total = qtd * valor_uni
 
+        # Formatação padrão Brasil
         qtd_str = str(qtd).replace('.', ',')
         valor_uni_str = f"{valor_uni:.2f}".replace('.', ',')
         total_str = f"{total:.2f}".replace('.', ',')
 
-        writer.writerow([p[0], tipo, grupo, p[1], qtd_str, p[4], valor_uni_str, total_str])
+        # Cria a linha do produto separada por ponto e vírgula
+        linha = f"{p[0]};{tipo};{grupo};{nome};{qtd_str};{unidade};{valor_uni_str};{total_str}"
+        linhas.append(linha)
 
-    # CORREÇÃO MÁGICA: Força o ponteiro a voltar para o início do arquivo antes de ler o conteúdo
-    conteudo = si.getvalue()
-    si.close()
+    # 3. Junta todas as linhas dando um "Enter" (\n) entre elas
+    texto_csv = "\n".join(linhas)
 
-    # Retorna o arquivo formatado para o Excel do Brasil (utf-8-sig resolve acentos)
-    output = Response(conteudo.encode('utf-8-sig'), mimetype='text/csv')
-    output.headers["Content-Disposition"] = "attachment; filename=Relatorio_Estoque_Virtron.csv"
-    
-    return output
-    
+    # 4. Envia o texto como arquivo (utf-8-sig resolve os acentos no Excel)
+    return Response(
+        texto_csv.encode('utf-8-sig'),
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=Relatorio_Estoque.csv"}
+    )
+
 # === SISTEMA DE LOGIN E LOGOUT ===
 @app.route('/login', methods=['GET', 'POST'])
 def login():
