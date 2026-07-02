@@ -89,23 +89,24 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         const ctx = document.getElementById('graficoMovimentacao').getContext('2d');
         
-        const labelsGrupos = {{ graf_labels | tojson }};
-        const valoresMovimentados = {{ graf_valores | tojson }};
-
+        // Recebe os dados processados do Python
+        const labels = {{ graf_labels | tojson }};
+        const valores = {{ graf_valores | tojson }};
+        
         new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: labelsGrupos,
+                labels: labels,
                 datasets: [{
-                    label: 'Total Movimentado (R$)',
-                    data: valoresMovimentados,
-                    backgroundColor: '#057a44',
-                    borderColor: '#064e2e',
-                    borderWidth: 1,
-                    borderRadius: 5
+                    label: 'Volume de Movimentação (R$)',
+                    data: valores,
+                    backgroundColor: '#057a44', // Verde padrão do seu sistema
+                    borderRadius: 4, // Deixa a ponta da barra arredondada
+                    maxBarThickness: 60 // IMPEDE A BARRA DE FICAR GIGANTE
                 }]
             },
             options: {
@@ -116,7 +117,18 @@
                         beginAtZero: true,
                         ticks: {
                             callback: function(value) {
-                                return 'R$ ' + value.toLocaleString('pt-BR');
+                                // Formata o eixo esquerdo para R$
+                                return 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let valor = context.raw;
+                                return 'R$ ' + valor.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                             }
                         }
                     }

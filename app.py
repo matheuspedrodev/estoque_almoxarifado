@@ -754,9 +754,11 @@ def dashboard_financeiro():
     valores_categoria = [{'grupo': c[0], 'total': c[1] if c[1] else 0.0} for c in categorias_bruto]
 
     periodo = request.args.get('periodo', '30')
+    
+    # A MUDANÇA ESTÁ AQUI: ABS() transforma qualquer valor (Entrada ou Saída) em volume POSITIVO
     cursor.execute('''
         SELECT COALESCE(g.nome, 'Sem Grupo') as grupo,
-               SUM(t.quantidade_retirada * p.preco_unitario) as total_movimentado
+               SUM(ABS(t.quantidade_retirada) * p.preco_unitario) as total_movimentado
         FROM Transacoes t
         JOIN Produtos p ON t.produto_id = p.id
         LEFT JOIN Grupos g ON p.grupo_id = g.id
@@ -778,7 +780,6 @@ def dashboard_financeiro():
         graf_valores=graf_valores,
         periodo_atual=periodo
     )
-
 
 # === GERENCIAMENTO DE USUÁRIOS (APENAS ADMIN) ===
 @app.route('/gerenciar_usuarios', methods=['GET', 'POST'])
