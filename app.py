@@ -23,57 +23,70 @@ def conectar_banco():
 
 @app.route('/exportar_estoque')
 def exportar_estoque():
+    # Importamos a ferramenta de resposta segura diretamente aqui dentro para evitar erros de import no topo do arquivo
+    from flask import make_response
+
     if 'usuario_id' not in session:
         return redirect('/login')
 
     conexao = conectar_banco()
     cursor = conexao.cursor()
 
+    # 1. Usamos a MESMA query exata da página inicial (Garantia de funcionamento)
     cursor.execute('''
-        SELECT p.id, p.nome, g.nome, p.quantidade_atual, p.unidade_medida, p.preco_unitario, p.estoque_separado
-        FROM Produtos p
-        LEFT JOIN Grupos g ON p.grupo_id = g.id
+        SELECT p.id, p.nome, p.quantidade_atual, p.estoque_minimo, 
+               p.estoque_maximo, p.ponto_pedido, p.unidade_medida, 
+               g.nome, p.grupo_id, p.preco_unitario, p.estoque_separado 
+        FROM Produtos p 
+        LEFT JOIN Grupos g ON p.grupo_id = g.id 
         ORDER BY p.estoque_separado DESC, p.nome
     ''')
     produtos = cursor.fetchall()
     conexao.close()
 
-    # MONTANDO O CSV DIRETAMENTE EM TEXTO (Sem risco de vir em branco)
+    # 2. Montamos o corpo do arquivo CSV
     linhas = []
-    
-    # 1. Coloca a linha de cabeçalho
+    # Cabeçalho da planilha
     linhas.append("ID;Tipo de Estoque;Grupo;Equipamento/Material;Qtd Atual;Unidade;Valor Unitario (R$);Total em Estoque (R$)")
 
-    # 2. Preenche os dados
+    # 3. Processamos as linhas usando os índices exatos e validados do banco
     for p in produtos:
-        tipo = "Módulos/Inversores" if p[6] else "Almoxarifado Geral"
-        grupo = str(p[2]) if p[2] else "Sem Grupo"
+        id_prod = p[0]
         nome = str(p[1])
-        unidade = str(p[4]) if p[4] else "UN"
-        
-        qtd = float(p[3] or 0)
-        valor_uni = float(p[5] or 0)
+        qtd = float(p[2] or 0)
+        unidade = str(p[6]) if p[6] else "UN"
+        grupo = str(p[7]) if p[7] else "Sem Grupo"
+        valor_uni = float(p[9] or 0)
+        es_separado = p[10] # True se for Inversor/Módulo, False se for Geral
+
+        tipo = "Módulos/Inversores" if es_separado else "Almoxarifado Geral"
         total = qtd * valor_uni
 
-        # Formatação padrão Brasil
+        # Formatação compatível com as fórmulas do Excel brasileiro
         qtd_str = str(qtd).replace('.', ',')
         valor_uni_str = f"{valor_uni:.2f}".replace('.', ',')
         total_str = f"{total:.2f}".replace('.', ',')
 
-        # Cria a linha do produto separada por ponto e vírgula
-        linha = f"{p[0]};{tipo};{grupo};{nome};{qtd_str};{unidade};{valor_uni_str};{total_str}"
+        # Monta a linha separada por ponto e vírgula
+        linha = f"{id_prod};{tipo};{grupo};{nome};{qtd_str};{unidade};{valor_uni_str};{total_str}"
         linhas.append(linha)
 
-    # 3. Junta todas as linhas dando um "Enter" (\n) entre elas
+    # Junta todas as linhas quebrando texto por enter
     texto_csv = "\n".join(linhas)
 
-    # 4. Envia o texto como arquivo (utf-8-sig resolve os acentos no Excel)
-    return Response(
-        texto_csv.encode('utf-8-sig'),
-        mimetype="text/csv",
-        headers={"Content-disposition": "attachment; filename=Relatorio_Estoque.csv"}
-    )
+    # 4. Criamos o arquivo de download blindado com cabeçalhos Anti-Cache
+    response = make_response(texto_csv.encode('utf-8-sig'))
+    response.headers['Content-Type'] = 'text/csv; charset=utf-8-sig'
+    response.headers['Content-Disposition'] = 'attachment; filename=Relatorio_Estoque_Virtron.csv'
+    
+    # 🛡️ TRAVAS ANTI-CACHE: Força o navegador a ignorar memórias antigas e ler o banco na hora!
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
 
+    return response
+
+    
 # === SISTEMA DE LOGIN E LOGOUT ===
 @app.route('/login', methods=['GET', 'POST'])
 def login():
