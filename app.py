@@ -29,7 +29,7 @@ def exportar_estoque():
     conexao = conectar_banco()
     cursor = conexao.cursor()
 
-    # Puxa todos os produtos, ordenando primeiro pelo tipo de estoque e depois pelo nome
+    # Query robusta para garantir que traga todos os dados
     cursor.execute('''
         SELECT p.id, p.nome, g.nome, p.quantidade_atual, p.unidade_medida, p.preco_unitario, p.estoque_separado
         FROM Produtos p
@@ -42,13 +42,13 @@ def exportar_estoque():
     # Prepara o arquivo na memória
     si = StringIO()
     
-    # Usa ponto e vírgula para o Excel do Brasil separar as colunas automaticamente
+    # Usa ponto e vírgula para o Excel brasileiro separar as colunas perfeitamente
     writer = csv.writer(si, delimiter=';')
     
-    # Escreve a linha de cabeçalho
+    # Linha de cabeçalho
     writer.writerow(['ID', 'Tipo de Estoque', 'Grupo', 'Equipamento/Material', 'Qtd Atual', 'Unidade', 'Valor Unitário (R$)', 'Total em Estoque (R$)'])
 
-    # Preenche as linhas com os dados
+    # Preenche as linhas
     for p in produtos:
         tipo = "Módulos/Inversores" if p[6] else "Almoxarifado Geral"
         grupo = p[2] if p[2] else "Sem Grupo"
@@ -57,19 +57,22 @@ def exportar_estoque():
         valor_uni = float(p[5] or 0)
         total = qtd * valor_uni
 
-        # Troca os pontos por vírgulas para o Excel entender as casas decimais e formata com 2 casas
         qtd_str = str(qtd).replace('.', ',')
         valor_uni_str = f"{valor_uni:.2f}".replace('.', ',')
         total_str = f"{total:.2f}".replace('.', ',')
 
         writer.writerow([p[0], tipo, grupo, p[1], qtd_str, p[4], valor_uni_str, total_str])
 
-    # O "utf-8-sig" é um truque mágico para o Excel não quebrar os acentos das palavras
-    output = Response(si.getvalue().encode('utf-8-sig'), mimetype='text/csv')
+    # CORREÇÃO MÁGICA: Força o ponteiro a voltar para o início do arquivo antes de ler o conteúdo
+    conteudo = si.getvalue()
+    si.close()
+
+    # Retorna o arquivo formatado para o Excel do Brasil (utf-8-sig resolve acentos)
+    output = Response(conteudo.encode('utf-8-sig'), mimetype='text/csv')
     output.headers["Content-Disposition"] = "attachment; filename=Relatorio_Estoque_Virtron.csv"
     
     return output
-
+    
 # === SISTEMA DE LOGIN E LOGOUT ===
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -194,16 +197,23 @@ def adicionar_produto():
         flash('Acesso negado. Apenas administradores podem cadastrar itens.', 'erro')
         return redirect('/')
 
+   # Captura os dados normais
     nome = request.form['nome']
     grupo_id = request.form.get('grupo_id')
     unidade = request.form['unidade']
     quantidade = request.form['quantidade']
     preco_unitario = request.form['preco_unitario']
-    minimo = request.form.get('minimo', 0)
-    maximo = request.form.get('maximo', 0)
-    ponto = request.form.get('ponto', 0)
     
-    # NOVA TRAVA: Verifica se o checkbox foi marcado
+    # TRATAMENTO PARA CAMPOS VAZIOS (EVITA ERRO DE INTEIRO NO BANCO)
+    minimo = request.form.get('minimo')
+    minimo = int(minimo) if minimo and minimo.strip() != "" else 0
+
+    maximo = request.form.get('maximo')
+    maximo = int(maximo) if maximo and maximo.strip() != "" else 0
+
+    ponto = request.form.get('ponto')
+    ponto = int(ponto) if ponto and ponto.strip() != "" else 0
+    
     estoque_separado = True if request.form.get('estoque_separado') else False
 
     conexao = conectar_banco()
