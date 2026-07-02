@@ -7,6 +7,9 @@ from datetime import datetime
 import csv
 import io
 from dotenv import load_dotenv
+from io import StringIO
+
+# (mantenha os outros imports que você já tem, como render_template, request, etc)
 
 load_dotenv(encoding='latin-1')
 
@@ -17,6 +20,55 @@ csrf = CSRFProtect(app)
 
 def conectar_banco():
     return psycopg2.connect(os.environ.get('DATABASE_URL'))
+
+@app.route('/exportar_estoque')
+def exportar_estoque():
+    if 'usuario_id' not in session:
+        return redirect('/login')
+
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+
+    # Puxa todos os produtos, ordenando primeiro pelo tipo de estoque e depois pelo nome
+    cursor.execute('''
+        SELECT p.id, p.nome, g.nome, p.quantidade_atual, p.unidade_medida, p.preco_unitario, p.estoque_separado
+        FROM Produtos p
+        LEFT JOIN Grupos g ON p.grupo_id = g.id
+        ORDER BY p.estoque_separado DESC, p.nome
+    ''')
+    produtos = cursor.fetchall()
+    conexao.close()
+
+    # Prepara o arquivo na memória
+    si = StringIO()
+    
+    # Usa ponto e vírgula para o Excel do Brasil separar as colunas automaticamente
+    writer = csv.writer(si, delimiter=';')
+    
+    # Escreve a linha de cabeçalho
+    writer.writerow(['ID', 'Tipo de Estoque', 'Grupo', 'Equipamento/Material', 'Qtd Atual', 'Unidade', 'Valor Unitário (R$)', 'Total em Estoque (R$)'])
+
+    # Preenche as linhas com os dados
+    for p in produtos:
+        tipo = "Módulos/Inversores" if p[6] else "Almoxarifado Geral"
+        grupo = p[2] if p[2] else "Sem Grupo"
+        
+        qtd = float(p[3] or 0)
+        valor_uni = float(p[5] or 0)
+        total = qtd * valor_uni
+
+        # Troca os pontos por vírgulas para o Excel entender as casas decimais e formata com 2 casas
+        qtd_str = str(qtd).replace('.', ',')
+        valor_uni_str = f"{valor_uni:.2f}".replace('.', ',')
+        total_str = f"{total:.2f}".replace('.', ',')
+
+        writer.writerow([p[0], tipo, grupo, p[1], qtd_str, p[4], valor_uni_str, total_str])
+
+    # O "utf-8-sig" é um truque mágico para o Excel não quebrar os acentos das palavras
+    output = Response(si.getvalue().encode('utf-8-sig'), mimetype='text/csv')
+    output.headers["Content-Disposition"] = "attachment; filename=Relatorio_Estoque_Virtron.csv"
+    
+    return output
 
 # === SISTEMA DE LOGIN E LOGOUT ===
 @app.route('/login', methods=['GET', 'POST'])
