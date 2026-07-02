@@ -728,7 +728,7 @@ def excluir_grupo(id):
     return redirect('/gerenciar_grupos')
 
 
-# === DASHBOARD FINANCEIRO (APENAS ADMIN) ===
+# === DASHBOARD FINANCEIRO COM DOIS GRÁFICOS (APENAS ADMIN) ===
 @app.route('/financeiro')
 def dashboard_financeiro():
     if 'usuario_id' not in session:
@@ -739,9 +739,11 @@ def dashboard_financeiro():
     conexao = conectar_banco()
     cursor = conexao.cursor()
 
+    # 1. Busca o Valor Total de Patrimônio
     cursor.execute("SELECT SUM(quantidade_atual * preco_unitario) FROM Produtos")
     patrimonio_total = cursor.fetchone()[0] or 0.0
 
+    # 2. Busca o Patrimônio por Categoria (Dados para a tabela e GRÁFICO 1)
     cursor.execute('''
         SELECT COALESCE(g.nome, 'Sem Grupo') as grupo,
                SUM(p.quantidade_atual * p.preco_unitario) as total
@@ -753,9 +755,12 @@ def dashboard_financeiro():
     categorias_bruto = cursor.fetchall()
     valores_categoria = [{'grupo': c[0], 'total': c[1] if c[1] else 0.0} for c in categorias_bruto]
 
+    # Processa os Arrays para o GRÁFICO 1 (Patrimônio)
+    graf_labels_patrimonio = [c[0] for c in categorias_bruto]
+    graf_valores_patrimonio = [c[1] if c[1] else 0.0 for c in categorias_bruto]
+
+    # 3. Busca a Movimentação/Saídas por Período (Dados para o GRÁFICO 2)
     periodo = request.args.get('periodo', '30')
-    
-    # A MUDANÇA ESTÁ AQUI: ABS() transforma qualquer valor (Entrada ou Saída) em volume POSITIVO
     cursor.execute('''
         SELECT COALESCE(g.nome, 'Sem Grupo') as grupo,
                SUM(ABS(t.quantidade_retirada) * p.preco_unitario) as total_movimentado
@@ -766,21 +771,24 @@ def dashboard_financeiro():
         GROUP BY p.grupo_id, g.nome
         ORDER BY total_movimentado DESC
     ''', (periodo,))
-    dados_grafico = cursor.fetchall()
+    dados_grafico_saidas = cursor.fetchall()
     conexao.close()
 
-    graf_labels = [item[0] for item in dados_grafico]
-    graf_valores = [item[1] if item[1] else 0.0 for item in dados_grafico]
+    # Processa os Arrays para o GRÁFICO 2 (Saídas/Movimentação)
+    graf_labels_saidas = [item[0] for item in dados_grafico_saidas]
+    graf_valores_saidas = [item[1] if item[1] else 0.0 for item in dados_grafico_saidas]
 
     return render_template(
         'financeiro.html',
         patrimonio_total=patrimonio_total,
         valores_categoria=valores_categoria,
-        graf_labels=graf_labels,
-        graf_valores=graf_valores,
+        graf_labels_patrimonio=graf_labels_patrimonio,
+        graf_valores_patrimonio=graf_valores_patrimonio,
+        graf_labels_saidas=graf_labels_saidas,
+        graf_valores_saidas=graf_valores_saidas,
         periodo_atual=periodo
     )
-
+    
 # === GERENCIAMENTO DE USUÁRIOS (APENAS ADMIN) ===
 @app.route('/gerenciar_usuarios', methods=['GET', 'POST'])
 def gerenciar_usuarios():

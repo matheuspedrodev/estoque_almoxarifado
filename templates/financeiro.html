@@ -22,8 +22,9 @@
         .kpi-card h3 { margin: 0; color: #666; font-size: 14px; text-transform: uppercase; }
         .kpi-card p { margin: 10px 0 0 0; font-size: 28px; font-weight: bold; color: var(--verde-escuro); }
 
-        .dashboard-grid { display: flex; gap: 20px; flex-wrap: wrap; }
-        .chart-card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); flex: 2; min-width: 450px; }
+        .dashboard-grid { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+        .coluna-graficos { flex: 2; display: flex; flex-direction: column; gap: 20px; min-width: 450px; }
+        .chart-card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .table-card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); flex: 1; min-width: 300px; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
@@ -51,20 +52,32 @@
         </div>
 
         <div class="dashboard-grid">
-            <div class="chart-card">
-                <h2>📊 Patrimônio por Grupo de Produtos</h2>>
-                <form method="GET" action="/financeiro">
-                    <label for="periodo">Filtrar Período: </label>
-                    <select name="periodo" id="periodo" class="filtro-periodo" onchange="this.form.submit()">
-                        <option value="30" {% if periodo_atual == '30' %}selected{% endif %}>Últimos 30 dias</option>
-                        <option value="90" {% if periodo_atual == '90' %}selected{% endif %}>Últimos 3 meses</option>
-                        <option value="180" {% if periodo_atual == '180' %}selected{% endif %}>Últimos 6 meses</option>
-                        <option value="365" {% if periodo_atual == '365' %}selected{% endif %}>Último 1 ano</option>
-                    </select>
-                </form>
-                <div style="height: 350px;">
-                    <canvas id="graficoMovimentacao"></canvas>
+            
+            <div class="coluna-graficos">
+                
+                <div class="chart-card">
+                    <h2>📊 Patrimônio por Grupo (Estoque Atual)</h2>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="graficoPatrimonio"></canvas>
+                    </div>
                 </div>
+
+                <div class="chart-card">
+                    <h2>📈 Volume de Saídas por Grupo</h2>
+                    <form method="GET" action="/financeiro">
+                        <label for="periodo">Filtrar Período: </label>
+                        <select name="periodo" id="periodo" class="filtro-periodo" onchange="this.form.submit()">
+                            <option value="30" {% if periodo_atual == '30' %}selected{% endif %}>Últimos 30 dias</option>
+                            <option value="90" {% if periodo_atual == '90' %}selected{% endif %}>Últimos 3 meses</option>
+                            <option value="180" {% if periodo_atual == '180' %}selected{% endif %}>Últimos 6 meses</option>
+                            <option value="365" {% if periodo_atual == '365' %}selected{% endif %}>Último 1 ano</option>
+                        </select>
+                    </form>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="graficoSaidas"></canvas>
+                    </div>
+                </div>
+
             </div>
 
             <div class="table-card">
@@ -89,50 +102,78 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        const ctx = document.getElementById('graficoMovimentacao').getContext('2d');
-        
-        // Recebe os dados processados do Python
-       // Puxa os dados da tabela de patrimônio em vez da movimentação
-        const labels = [{% for item in valores_categoria %}"{{ item.grupo }}",{% endfor %}];
-        const valores = [{% for item in valores_categoria %}{{ item.total }},{% endfor %}];
-        
-        new Chart(ctx, {
+        // Função Global para formatar os valores para Real Brasileiro (R$)
+        const formatarMoeda = function(value) {
+            return 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        };
+
+        // ==========================================
+        // GRÁFICO 1: PATRIMÔNIO (ESTOQUE ATUAL)
+        // ==========================================
+        const ctxPatrimonio = document.getElementById('graficoPatrimonio').getContext('2d');
+        new Chart(ctxPatrimonio, {
             type: 'bar',
             data: {
-                labels: labels,
+                labels: {{ graf_labels_patrimonio | tojson }},
                 datasets: [{
-                    label: 'Volume de Movimentação (R$)',
-                    data: valores,
-                    backgroundColor: '#057a44', // Verde padrão do seu sistema
-                    borderRadius: 4, // Deixa a ponta da barra arredondada
-                    maxBarThickness: 60 // IMPEDE A BARRA DE FICAR GIGANTE
+                    label: 'Patrimônio Imobilizado (R$)',
+                    data: {{ graf_valores_patrimonio | tojson }},
+                    backgroundColor: '#057a44', // Verde padrão Virtron
+                    borderRadius: 4,
+                    maxBarThickness: 60
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                // Formata o eixo esquerdo para R$
-                                return 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                            }
-                        }
-                    }
+                scales: { 
+                    y: { 
+                        beginAtZero: true, 
+                        ticks: { callback: formatarMoeda } 
+                    } 
                 },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let valor = context.raw;
-                                return 'R$ ' + valor.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                            }
-                        }
-                    }
+                plugins: { 
+                    tooltip: { 
+                        callbacks: { 
+                            label: function(c) { return formatarMoeda(c.raw); } 
+                        } 
+                    } 
+                }
+            }
+        });
+
+        // ==========================================
+        // GRÁFICO 2: HISTÓRICO DE SAÍDAS (FILTRADO)
+        // ==========================================
+        const ctxSaidas = document.getElementById('graficoSaidas').getContext('2d');
+        new Chart(ctxSaidas, {
+            type: 'bar',
+            data: {
+                labels: {{ graf_labels_saidas | tojson }},
+                datasets: [{
+                    label: 'Volume de Saídas (R$)',
+                    data: {{ graf_valores_saidas | tojson }},
+                    backgroundColor: '#17a2b8', // Cor diferente (Azul) para contrastar com o estoque
+                    borderRadius: 4,
+                    maxBarThickness: 60
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { 
+                    y: { 
+                        beginAtZero: true, 
+                        ticks: { callback: formatarMoeda } 
+                    } 
+                },
+                plugins: { 
+                    tooltip: { 
+                        callbacks: { 
+                            label: function(c) { return formatarMoeda(c.raw); } 
+                        } 
+                    } 
                 }
             }
         });
