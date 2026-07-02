@@ -140,32 +140,48 @@ def adicionar_produto():
     if 'usuario_id' not in session:
         return redirect('/login')
         
-    # --- TRAVA DE ADMIN AQUI ---
     if session.get('usuario_nivel') != 'admin':
         flash('Acesso negado. Apenas administradores podem cadastrar itens.', 'erro')
         return redirect('/')
-    # ---------------------------
-
-    # ... aqui continua o seu código de (nome = request.form['nome']...)
 
     nome = request.form['nome']
+    grupo_id = request.form.get('grupo_id')
+    unidade = request.form['unidade']
     quantidade = request.form['quantidade']
+    preco_unitario = request.form['preco_unitario']
     minimo = request.form['minimo']
     maximo = request.form['maximo']
     ponto = request.form['ponto']
-    unidade = request.form['unidade']
-    grupo_id = request.form['grupo_id']
-    preco_unitario = request.form['preco_unitario']
 
     conexao = conectar_banco()
     cursor = conexao.cursor()
-    cursor.execute('''
-        INSERT INTO Produtos (nome, quantidade_atual, estoque_minimo, estoque_maximo,
-                              ponto_pedido, unidade_medida, grupo_id, preco_unitario)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    ''', (nome, quantidade, minimo, maximo, ponto, unidade, grupo_id, preco_unitario))
-    conexao.commit()
-    conexao.close()
+
+    # === NOVA TRAVA: VERIFICAÇÃO DE ITEM DUPLICADO ===
+    # Usamos LOWER() para garantir que "Cabo" e "CABO" sejam vistos como o mesmo nome
+    cursor.execute("SELECT id FROM Produtos WHERE LOWER(nome) = LOWER(%s)", (nome,))
+    item_existente = cursor.fetchone()
+
+    if item_existente:
+        conexao.close()
+        flash(f'Bloqueado: Já existe um material cadastrado com o nome "{nome}".', 'erro')
+        return redirect('/')
+    # =================================================
+
+    try:
+        # Se passou pela trava, faz o cadastro normal
+        cursor.execute('''
+            INSERT INTO Produtos (nome, grupo_id, unidade_medida, quantidade_atual, preco_unitario, estoque_minimo, estoque_maximo, ponto_pedido)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (nome, grupo_id, unidade, quantidade, preco_unitario, minimo, maximo, ponto))
+        
+        conexao.commit()
+        flash(f'Material "{nome}" cadastrado com sucesso!', 'sucesso')
+    except Exception as e:
+        conexao.rollback()
+        flash(f'Erro ao cadastrar material: {e}', 'erro')
+    finally:
+        conexao.close()
+
     return redirect('/')
 
 
