@@ -18,6 +18,18 @@ csrf = CSRFProtect(app)
 def conectar_banco():
     return psycopg2.connect(os.environ.get('DATABASE_URL'))
 
+@app.route('/atualizar_banco')
+def atualizar_banco():
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+    try:
+        cursor.execute("ALTER TABLE Produtos ADD COLUMN estoque_separado BOOLEAN DEFAULT FALSE;")
+        conexao.commit()
+        return "Banco de dados atualizado com sucesso! Você já pode voltar para a tela inicial."
+    except Exception as e:
+        return f"Ocorreu um erro ou a coluna já existe: {e}"
+    finally:
+        conexao.close()
 
 # === SISTEMA DE LOGIN E LOGOUT ===
 @app.route('/login', methods=['GET', 'POST'])
