@@ -18,19 +18,6 @@ csrf = CSRFProtect(app)
 def conectar_banco():
     return psycopg2.connect(os.environ.get('DATABASE_URL'))
 
-@app.route('/atualizar_banco')
-def atualizar_banco():
-    conexao = conectar_banco()
-    cursor = conexao.cursor()
-    try:
-        cursor.execute("ALTER TABLE Produtos ADD COLUMN estoque_separado BOOLEAN DEFAULT FALSE;")
-        conexao.commit()
-        return "Banco de dados atualizado com sucesso! Você já pode voltar para a tela inicial."
-    except Exception as e:
-        return f"Ocorreu um erro ou a coluna já existe: {e}"
-    finally:
-        conexao.close()
-
 # === SISTEMA DE LOGIN E LOGOUT ===
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -73,18 +60,16 @@ def index():
     conexao = conectar_banco()
     cursor = conexao.cursor()
 
-    # 1. Pega os Grupos para o menu de filtros
     cursor.execute("SELECT id, nome FROM Grupos ORDER BY nome")
     grupos = cursor.fetchall()
 
-    # 2. Verifica se o usuário fez alguma pesquisa ou filtro
     pesquisa_atual = request.args.get('pesquisa', '')
     grupo_atual = request.args.get('grupo_filtro', '')
 
     query = '''
         SELECT p.id, p.nome, p.quantidade_atual, p.estoque_minimo, 
                p.estoque_maximo, p.ponto_pedido, p.unidade_medida, 
-               g.nome, p.grupo_id, p.preco_unitario 
+               g.nome, p.grupo_id, p.preco_unitario, p.estoque_separado 
         FROM Produtos p 
         LEFT JOIN Grupos g ON p.grupo_id = g.id 
         WHERE 1=1
@@ -100,48 +85,49 @@ def index():
 
     query += " ORDER BY p.nome"
     
-    # 3. Executa a busca dos produtos
     cursor.execute(query, params)
-    produtos = cursor.fetchall()
+    produtos_brutos = cursor.fetchall()
     conexao.close()
 
-    # 4. === LÓGICA DE GERAÇÃO DE ALERTAS (TITÂNIO) ===
+    produtos_gerais = []
+    produtos_separados = []
     alertas = []
-    for p in produtos:
-        try:
-            # Essa micro-função garante que textos vazios, None ou espaços virem Zero absoluto
-            def pega_numero(valor):
-                if valor is None or str(valor).strip() == '':
-                    return 0.0
-                return float(valor)
 
-            qtd_atual = pega_numero(p[2])
-            estoque_min = pega_numero(p[3])
-            estoque_max = pega_numero(p[4])
-            ponto_pedido = pega_numero(p[5])
-            
-            gatilho = ponto_pedido if ponto_pedido > 0 else estoque_min
-            
-            # Condição: Se a qtd atual bater no gatilho (mesmo que ambos sejam zero)
-            if qtd_atual <= gatilho:
-                sugestao = estoque_max - qtd_atual if estoque_max > qtd_atual else 1
-                alertas.append({
-                    'nome': str(p[1]),
-                    'atual': int(qtd_atual) if qtd_atual.is_integer() else qtd_atual,
-                    'ponto': int(gatilho) if gatilho.is_integer() else gatilho,
-                    'sugestao': int(sugestao) if sugestao.is_integer() else sugestao,
-                    'unidade': str(p[6]) if p[6] else 'un'
-                })
-        except Exception as e:
-            # Se der erro grave, ele vai criar um alerta FALSO avisando qual item quebrou!
-            alertas.append({
-                'nome': f"⚠️ ERRO MATEMÁTICO NO ITEM ID {p[0]}",
-                'atual': 0, 'ponto': 0, 'sugestao': 0, 'unidade': 'ERRO'
-            })
+    for p in produtos_brutos:
+        # p[10] é a nova coluna estoque_separado
+        if p[10]: 
+            produtos_separados.append(p)
+        else:
+            produtos_gerais.append(p)
+            # ALERTA RODA APENAS PARA O ESTOQUE GERAL
+            try:
+                def pega_numero(valor):
+                    if valor is None or str(valor).strip() == '': return 0.0
+                    return float(valor)
 
-    # 5. Envia todos os dados mastigados para a tela HTML sem pontinhos extras!
+                qtd_atual = pega_numero(p[2])
+                estoque_min = pega_numero(p[3])
+                estoque_max = pega_numero(p[4])
+                ponto_pedido = pega_numero(p[5])
+                
+                gatilho = ponto_pedido if ponto_pedido > 0 else estoque_min
+                
+                if qtd_atual <= gatilho:
+                    sugestao = estoque_max - qtd_atual if estoque_max > qtd_atual else 1
+                    alertas.append({
+                        'nome': str(p[1]),
+                        'atual': int(qtd_atual) if qtd_atual.is_integer() else qtd_atual,
+                        'ponto': int(gatilho) if gatilho.is_integer() else gatilho,
+                        'sugestao': int(sugestao) if sugestao.is_integer() else sugestao,
+                        'unidade': str(p[6]) if p[6] else 'un'
+                    })
+            except Exception as e:
+                print(f"Erro ao gerar alerta: {e}")
+                continue
+
     return render_template('index.html', 
-                           produtos=produtos, 
+                           produtos=produtos_gerais, 
+                           produtos_separados=produtos_separados,
                            grupos=grupos, 
                            alertas=alertas, 
                            pesquisa_atual=pesquisa_atual, 
@@ -161,31 +147,27 @@ def adicionar_produto():
     unidade = request.form['unidade']
     quantidade = request.form['quantidade']
     preco_unitario = request.form['preco_unitario']
-    minimo = request.form['minimo']
-    maximo = request.form['maximo']
-    ponto = request.form['ponto']
+    minimo = request.form.get('minimo', 0)
+    maximo = request.form.get('maximo', 0)
+    ponto = request.form.get('ponto', 0)
+    
+    # NOVA TRAVA: Verifica se o checkbox foi marcado
+    estoque_separado = True if request.form.get('estoque_separado') else False
 
     conexao = conectar_banco()
     cursor = conexao.cursor()
 
-    # === NOVA TRAVA: VERIFICAÇÃO DE ITEM DUPLICADO ===
-    # Usamos LOWER() para garantir que "Cabo" e "CABO" sejam vistos como o mesmo nome
     cursor.execute("SELECT id FROM Produtos WHERE LOWER(nome) = LOWER(%s)", (nome,))
-    item_existente = cursor.fetchone()
-
-    if item_existente:
+    if cursor.fetchone():
         conexao.close()
         flash(f'Bloqueado: Já existe um material cadastrado com o nome "{nome}".', 'erro')
         return redirect('/')
-    # =================================================
 
     try:
-        # Se passou pela trava, faz o cadastro normal
         cursor.execute('''
-            INSERT INTO Produtos (nome, grupo_id, unidade_medida, quantidade_atual, preco_unitario, estoque_minimo, estoque_maximo, ponto_pedido)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        ''', (nome, grupo_id, unidade, quantidade, preco_unitario, minimo, maximo, ponto))
-        
+            INSERT INTO Produtos (nome, grupo_id, unidade_medida, quantidade_atual, preco_unitario, estoque_minimo, estoque_maximo, ponto_pedido, estoque_separado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (nome, grupo_id, unidade, quantidade, preco_unitario, minimo, maximo, ponto, estoque_separado))
         conexao.commit()
         flash(f'Material "{nome}" cadastrado com sucesso!', 'sucesso')
     except Exception as e:

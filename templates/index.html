@@ -102,33 +102,72 @@
         <div class="grid-container">
             
             {% if session['usuario_nivel'] == 'admin' %}
-            <div class="card">
-                <h2>Novo Cadastro (Item Novo)</h2>
-                <small style="color: #666; display:block; margin-bottom: 10px;">Use apenas para itens que NUNCA foram cadastrados no sistema.</small>
-                <form action="/adicionar" method="POST">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <div class="form-group"><label>Nome do Material:</label><input type="text" name="nome" required></div>
-                    <div class="form-group">
-                        <label>Grupo / Categoria:</label>
-                        <select name="grupo_id" required>
-                            <option value="">Escolha um grupo...</option>
-                            {% for grupo in grupos %} <option value="{{ grupo[0] }}">{{ grupo[1] }}</option> {% endfor %}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Unidade de Medida:</label>
-                        <select name="unidade" required>
-                            <option value="UN">Unidade (UN)</option><option value="KG">Quilograma (KG)</option><option value="M">Metro (M)</option><option value="CX">Caixa (CX)</option><option value="PCT">Pacote (PCT)</option>
-                        </select>
-                    </div>
-                    <div class="form-group"><label>Qtd Inicial:</label><input type="number" name="quantidade" required></div>
-                    <div class="form-group"><label>Valor Unitario (R$):</label><input type="number" name="preco_unitario" step="0.01" min="0" value="0.00" required></div>
-                    <div class="form-group"><label>Estoque Minimo:</label><input type="number" name="minimo" required></div>
-                    <div class="form-group"><label>Estoque Maximo:</label><input type="number" name="maximo" required></div>
-                    <div class="form-group"><label>Ponto de Pedido:</label><input type="number" name="ponto" required></div>
-                    <button type="submit">Cadastrar e Salvar</button>
-                </form>
-            </div>
+           <div class="card">
+    <h2>Novo Cadastro (Item Novo)</h2>
+    <small style="color: #666; display:block; margin-bottom: 10px;">Use apenas para itens que NUNCA foram cadastrados no sistema.</small>
+    
+    <form action="/adicionar" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <div class="form-group">
+            <label>Nome do Material:</label>
+            <input type="text" name="nome" required>
+        </div>
+
+        <div class="form-group" style="background: #e3f2fd; padding: 10px; border-radius: 4px; border-left: 4px solid #1976d2;">
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 10px; color: #1565c0;">
+                <input type="checkbox" name="estoque_separado" value="true" style="width: auto; margin: 0;" onchange="alternarCamposEstoque(this)">
+                <b>Este é um Módulo ou Inversor? (Estoque Separado)</b>
+            </label>
+        </div>
+
+        <div class="form-group">
+            <label>Grupo / Categoria:</label>
+            <select name="grupo_id" required>
+                <option value="">Escolha um grupo...</option>
+                {% for grupo in grupos %} <option value="{{ grupo[0] }}">{{ grupo[1] }}</option> {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Unidade de Medida:</label>
+            <select name="unidade" required>
+                <option value="UN">Unidade (UN)</option>
+                <option value="KG">Quilograma (KG)</option>
+                <option value="M">Metro (M)</option>
+                <option value="CX">Caixa (CX)</option>
+                <option value="PCT">Pacote (PCT)</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>Qtd Inicial:</label>
+            <input type="number" name="quantidade" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Valor Unitario (R$):</label>
+            <input type="number" name="preco_unitario" step="0.01" min="0" value="0.00" required>
+        </div>
+
+        <div class="form-group campos-estoque-geral">
+            <label>Estoque Minimo:</label>
+            <input type="number" name="minimo" required>
+        </div>
+        
+        <div class="form-group campos-estoque-geral">
+            <label>Estoque Maximo:</label>
+            <input type="number" name="maximo" required>
+        </div>
+        
+        <div class="form-group campos-estoque-geral">
+            <label>Ponto de Pedido:</label>
+            <input type="number" name="ponto" required>
+        </div>
+
+        <button type="submit">Cadastrar e Salvar</button>
+    </form>
+</div>
 
             <div class="card" style="border-top-color: #28a745;">
                 <h2>Registrar Entrada (Compra/NF)</h2>
@@ -256,6 +295,48 @@
             </table>
         </div>
 
+        <div class="card" style="border-top-color: #1976d2;">
+    <h2>Estoque de Equipamentos Principais (Módulos e Inversores)</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Grupo</th>
+                <th>Equipamento</th>
+                {% if session['usuario_nivel'] == 'admin' %}<th>Valor Unitário</th>{% endif %}
+                <th>Qtd Atual</th>
+                {% if session['usuario_nivel'] == 'admin' %}<th>Total em Estoque</th>{% endif %}
+                {% if session['usuario_nivel'] == 'admin' %}<th>Ações</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for produto in produtos_separados %}
+            <tr class="{% if produto[2] <= 0 %} alerta-vermelho {% endif %}">
+                <td>{{ produto[0] }}</td>
+                <td><span style="background: #e0e0e0; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #444;">{{ produto[7] if produto[7] else 'Sem Grupo' }}</span></td>
+                <td>{{ produto[1] }}</td>
+                
+                {% if session['usuario_nivel'] == 'admin' %}
+                    <td style="{% if not produto[9] or produto[9] == 0 %} color: #d32f2f; font-weight: bold; {% endif %}">
+                        R$ {{ "{:,.2f}".format(produto[9] if produto[9] is not none else 0).replace(",", "v").replace(".", ",").replace("v", ".") }}
+                    </td>
+                {% endif %}
+                
+                <td><b>{{ produto[2] }}</b> {{ produto[6] }}</td>
+                
+                {% if session['usuario_nivel'] == 'admin' %}
+                    <td><b>R$ {{ "{:,.2f}".format((produto[2] * (produto[9] if produto[9] is not none else 0))).replace(",", "v").replace(".", ",").replace("v", ".") }}</b></td>
+                    <td>
+                        <a href="/editar/{{ produto[0] }}" style="text-decoration: none; font-size: 18px;" title="Editar">&#9999;</a>
+                        <a href="/excluir/{{ produto[0] }}" style="text-decoration: none; font-size: 18px; margin-left: 10px;" title="Excluir" onclick="return confirm('Tem certeza?');">&#128465;</a>
+                    </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
         <div style="text-align: center; color: #888; font-size: 11px; margin-top: 40px; padding-bottom: 10px; letter-spacing: 0.5px;">
             Criado por Matheus Pedro
         </div>
@@ -275,6 +356,16 @@
             const container = document.getElementById('lista-itens');
             if (container.children.length > 1) { botao.parentElement.remove(); }
         }
+
+        function alternarCamposEstoque(checkbox) {
+    const camposExtras = document.querySelectorAll('.campos-estoque-geral');
+    camposExtras.forEach(campo => {
+        campo.style.display = checkbox.checked ? 'none' : 'block';
+        // Remove a obrigatoriedade se estiver oculto
+        const inputs = campo.querySelectorAll('input');
+        inputs.forEach(input => input.required = !checkbox.checked);
+    });
+}
     </script>
 </body>
 </html>
