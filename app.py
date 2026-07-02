@@ -23,70 +23,62 @@ def conectar_banco():
 
 @app.route('/exportar_estoque')
 def exportar_estoque():
-    # Importamos a ferramenta de resposta segura diretamente aqui dentro para evitar erros de import no topo do arquivo
-    from flask import make_response
+    try:
+        from flask import make_response
+        import traceback # O nosso "espião" de erros
 
-    if 'usuario_id' not in session:
-        return redirect('/login')
+        if 'usuario_id' not in session:
+            return redirect('/login')
 
-    conexao = conectar_banco()
-    cursor = conexao.cursor()
+        conexao = conectar_banco()
+        cursor = conexao.cursor()
 
-    # 1. Usamos a MESMA query exata da página inicial (Garantia de funcionamento)
-    cursor.execute('''
-        SELECT p.id, p.nome, p.quantidade_atual, p.estoque_minimo, 
-               p.estoque_maximo, p.ponto_pedido, p.unidade_medida, 
-               g.nome, p.grupo_id, p.preco_unitario, p.estoque_separado 
-        FROM Produtos p 
-        LEFT JOIN Grupos g ON p.grupo_id = g.id 
-        ORDER BY p.estoque_separado DESC, p.nome
-    ''')
-    produtos = cursor.fetchall()
-    conexao.close()
+        cursor.execute('''
+            SELECT p.id, p.nome, p.quantidade_atual, p.estoque_minimo, 
+                   p.estoque_maximo, p.ponto_pedido, p.unidade_medida, 
+                   g.nome, p.grupo_id, p.preco_unitario, p.estoque_separado 
+            FROM Produtos p 
+            LEFT JOIN Grupos g ON p.grupo_id = g.id 
+            ORDER BY p.estoque_separado DESC, p.nome
+        ''')
+        produtos = cursor.fetchall()
+        conexao.close()
 
-    # 2. Montamos o corpo do arquivo CSV
-    linhas = []
-    # Cabeçalho da planilha
-    linhas.append("ID;Tipo de Estoque;Grupo;Equipamento/Material;Qtd Atual;Unidade;Valor Unitario (R$);Total em Estoque (R$)")
+        linhas = []
+        linhas.append("ID;Tipo de Estoque;Grupo;Equipamento/Material;Qtd Atual;Unidade;Valor Unitario (R$);Total em Estoque (R$)")
 
-    # 3. Processamos as linhas usando os índices exatos e validados do banco
-    for p in produtos:
-        id_prod = p[0]
-        nome = str(p[1])
-        qtd = float(p[2] or 0)
-        unidade = str(p[6]) if p[6] else "UN"
-        grupo = str(p[7]) if p[7] else "Sem Grupo"
-        valor_uni = float(p[9] or 0)
-        es_separado = p[10] # True se for Inversor/Módulo, False se for Geral
+        for p in produtos:
+            id_prod = p[0]
+            nome = str(p[1])
+            qtd = float(p[2] or 0)
+            unidade = str(p[6]) if p[6] else "UN"
+            grupo = str(p[7]) if p[7] else "Sem Grupo"
+            valor_uni = float(p[9] or 0)
+            es_separado = p[10]
 
-        tipo = "Módulos/Inversores" if es_separado else "Almoxarifado Geral"
-        total = qtd * valor_uni
+            tipo = "Módulos/Inversores" if es_separado else "Almoxarifado Geral"
+            total = qtd * valor_uni
 
-        # Formatação compatível com as fórmulas do Excel brasileiro
-        qtd_str = str(qtd).replace('.', ',')
-        valor_uni_str = f"{valor_uni:.2f}".replace('.', ',')
-        total_str = f"{total:.2f}".replace('.', ',')
+            qtd_str = str(qtd).replace('.', ',')
+            valor_uni_str = f"{valor_uni:.2f}".replace('.', ',')
+            total_str = f"{total:.2f}".replace('.', ',')
 
-        # Monta a linha separada por ponto e vírgula
-        linha = f"{id_prod};{tipo};{grupo};{nome};{qtd_str};{unidade};{valor_uni_str};{total_str}"
-        linhas.append(linha)
+            linha = f"{id_prod};{tipo};{grupo};{nome};{qtd_str};{unidade};{valor_uni_str};{total_str}"
+            linhas.append(linha)
 
-    # Junta todas as linhas quebrando texto por enter
-    texto_csv = "\n".join(linhas)
+        texto_csv = "\n".join(linhas)
 
-    # 4. Criamos o arquivo de download blindado com cabeçalhos Anti-Cache
-    response = make_response(texto_csv.encode('utf-8-sig'))
-    response.headers['Content-Type'] = 'text/csv; charset=utf-8-sig'
-    response.headers['Content-Disposition'] = 'attachment; filename=Relatorio_Estoque_Virtron.csv'
-    
-    # 🛡️ TRAVAS ANTI-CACHE: Força o navegador a ignorar memórias antigas e ler o banco na hora!
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
+        response = make_response(texto_csv.encode('utf-8-sig'))
+        response.headers['Content-Type'] = 'text/csv; charset=utf-8-sig'
+        response.headers['Content-Disposition'] = 'attachment; filename=Relatorio_Estoque_Virtron.csv'
+        return response
 
-    return response
+    except Exception as e:
+        # SE DER ERRO, VAI MOSTRAR NA TELA DO NAVEGADOR!
+        erro_completo = traceback.format_exc()
+        return f"<h1>Opa! O Python encontrou este erro:</h1><pre style='background:#f4f4f4; padding:20px; border-left:5px solid red;'>{erro_completo}</pre>"
 
-    
+
 # === SISTEMA DE LOGIN E LOGOUT ===
 @app.route('/login', methods=['GET', 'POST'])
 def login():
