@@ -493,7 +493,7 @@ def historico_protocolos():
     )
 
 
-# === ROTA DO EXPORTAR EXCEL (AGORA COM COLUNA TIPO) ===
+# === ROTA DO EXPORTAR EXCEL (AGORA COM COLUNA TIPO E USUÁRIO) ===
 @app.route('/exportar')
 def exportar_csv():
     if 'usuario_id' not in session:
@@ -501,6 +501,8 @@ def exportar_csv():
 
     conexao = conectar_banco()
     cursor = conexao.cursor()
+    
+    # Adicionamos o JOIN com Usuarios e pegamos o u.nome no SELECT
     cursor.execute('''
         SELECT 
             COALESCE(t.codigo_protocolo, CAST(t.id AS VARCHAR)), 
@@ -513,10 +515,12 @@ def exportar_csv():
                 ELSE 'Item Excluído ou Desconhecido'
             END,
             ABS(t.quantidade_retirada), 
-            t.solicitante
+            t.solicitante,
+            COALESCE(u.nome, 'Não Identificado')
         FROM Transacoes t
         LEFT JOIN Produtos p ON t.produto_id = p.id
         LEFT JOIN Kits k ON t.kit_id = k.id
+        LEFT JOIN Usuarios u ON t.usuario_id = u.id
         ORDER BY t.data_hora DESC
     ''')
     transacoes = cursor.fetchall()
@@ -524,11 +528,15 @@ def exportar_csv():
     
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
-    writer.writerow(['Nº Registro/Protocolo', 'Data e Hora', 'Tipo da Movimentacao', 'Material', 'Quantidade', 'Solicitante / Fornecedor'])
+    
+    # Cabeçalho atualizado com a coluna de Usuário Responsável no final
+    writer.writerow(['Nº Registro/Protocolo', 'Data e Hora', 'Tipo da Movimentacao', 'Material', 'Quantidade', 'Solicitante / Fornecedor', 'Usuário Responsável'])
+    
     for t in transacoes:
         writer.writerow(t)
         
-    response = Response(output.getvalue(), mimetype='text/csv')
+    # .encode('utf-8-sig') garante que o Excel do Windows não desconfigure a acentuação
+    response = Response(output.getvalue().encode('utf-8-sig'), mimetype='text/csv; charset=utf-8-sig')
     response.headers["Content-Disposition"] = "attachment; filename=historico_almoxarifado.csv"
     return response
 
