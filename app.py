@@ -521,56 +521,50 @@ def historico_protocolos():
     )
 
 
-# === ROTA DO EXPORTAR EXCEL (COM MODO ESPIÃO) ===
+# === ROTA DO EXPORTAR EXCEL (VERSÃO FINAL E CORRIGIDA) ===
 @app.route('/exportar')
 def exportar_csv():
-    try:
-        if 'usuario_id' not in session:
-            return redirect('/login')
+    if 'usuario_id' not in session:
+        return redirect('/login')
 
-        conexao = conectar_banco()
-        cursor = conexao.cursor()
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+    
+    cursor.execute('''
+        SELECT 
+            COALESCE(t.codigo_protocolo, CAST(t.id AS VARCHAR)), 
+            TO_CHAR(t.data_hora AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI:SS'),
+            CASE WHEN t.quantidade_retirada < 0 THEN 'ENTRADA' ELSE 'SAIDA' END as tipo,
+            CASE 
+                WHEN t.quantidade_retirada < 0 THEN p.nome
+                WHEN t.produto_id IS NOT NULL THEN CONCAT(p.nome, ' (', COALESCE(p.unidade_medida, 'un'), ')')
+                WHEN t.kit_id IS NOT NULL THEN CONCAT(k.nome, ' (Kit Montado)')
+                ELSE 'Item Excluído ou Desconhecido'
+            END,
+            ABS(t.quantidade_retirada), 
+            t.solicitante,
+            COALESCE(u.usuario, 'Não Identificado') -- O SEGREDO ESTAVA AQUI!
+        FROM Transacoes t
+        LEFT JOIN Produtos p ON t.produto_id = p.id
+        LEFT JOIN Kits k ON t.kit_id = k.id
+        LEFT JOIN Usuarios u ON t.usuario_id = u.id
+        ORDER BY t.data_hora DESC
+    ''')
+    transacoes = cursor.fetchall()
+    conexao.close()
+    
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=';')
+    
+    writer.writerow(['Nº Registro/Protocolo', 'Data e Hora', 'Tipo da Movimentacao', 'Material', 'Quantidade', 'Solicitante / Fornecedor', 'Usuário Responsável'])
+    
+    for t in transacoes:
+        writer.writerow(t)
         
-        cursor.execute('''
-            SELECT 
-                COALESCE(t.codigo_protocolo, CAST(t.id AS VARCHAR)), 
-                TO_CHAR(t.data_hora AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI:SS'),
-                CASE WHEN t.quantidade_retirada < 0 THEN 'ENTRADA' ELSE 'SAIDA' END as tipo,
-                CASE 
-                    WHEN t.quantidade_retirada < 0 THEN p.nome
-                    WHEN t.produto_id IS NOT NULL THEN CONCAT(p.nome, ' (', COALESCE(p.unidade_medida, 'un'), ')')
-                    WHEN t.kit_id IS NOT NULL THEN CONCAT(k.nome, ' (Kit Montado)')
-                    ELSE 'Item Excluído ou Desconhecido'
-                END,
-                ABS(t.quantidade_retirada), 
-                t.solicitante,
-                COALESCE(u.nome, 'Não Identificado')
-            FROM Transacoes t
-            LEFT JOIN Produtos p ON t.produto_id = p.id
-            LEFT JOIN Kits k ON t.kit_id = k.id
-            LEFT JOIN Usuarios u ON t.usuario_id = u.id
-            ORDER BY t.data_hora DESC
-        ''')
-        transacoes = cursor.fetchall()
-        conexao.close()
-        
-        output = io.StringIO()
-        writer = csv.writer(output, delimiter=';')
-        
-        writer.writerow(['Nº Registro/Protocolo', 'Data e Hora', 'Tipo da Movimentacao', 'Material', 'Quantidade', 'Solicitante / Fornecedor', 'Usuário Responsável'])
-        
-        for t in transacoes:
-            writer.writerow(t)
-            
-        response = Response(output.getvalue().encode('utf-8-sig'), mimetype='text/csv; charset=utf-8-sig')
-        response.headers["Content-Disposition"] = "attachment; filename=historico_almoxarifado.csv"
-        return response
-        
-    except Exception as e:
-        import traceback
-        erro_completo = traceback.format_exc()
-        return f"<h1>Opa! O Python encontrou este erro:</h1><pre style='background:#f4f4f4; padding:20px; border-left:5px solid red;'>{erro_completo}</pre>"
-
+    response = Response(output.getvalue().encode('utf-8-sig'), mimetype='text/csv; charset=utf-8-sig')
+    response.headers["Content-Disposition"] = "attachment; filename=historico_almoxarifado.csv"
+    return response
+    
 @app.route('/kits')
 def gerenciar_kits():
     if 'usuario_id' not in session:
