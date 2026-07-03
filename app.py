@@ -251,31 +251,58 @@ def adicionar_produto():
 def adicionar_estoque():
     if 'usuario_id' not in session:
         return redirect('/login')
-        
-    # --- TRAVA DE ADMIN AQUI ---
+
     if session.get('usuario_nivel') != 'admin':
-        flash('Acesso negado. Apenas administradores podem dar entrada no estoque.', 'erro')
+        flash('Acesso negado. Apenas administradores podem registrar entrada.', 'erro')
         return redirect('/')
-    # ---------------------------
 
-    # ... aqui continua o seu código de (produto_id = request.form['produto_id']...)
+    # Recebe as listas de múltiplos itens enviados pelo formulário
+    produto_ids = request.form.getlist('produto_id_entrada')
+    quantidades = request.form.getlist('quantidade_entrada')
+    precos = request.form.getlist('preco_unitario_entrada')
 
-    produto_id = request.form['produto_id']
-    qtd_entrada = int(request.form['quantidade_entrada'])
-    preco_novo = float(request.form['preco_unitario'])
+    if not produto_ids:
+        flash('Nenhum material foi selecionado.', 'erro')
+        return redirect('/')
 
     conexao = conectar_banco()
     cursor = conexao.cursor()
-    cursor.execute(
-        'UPDATE Produtos SET quantidade_atual = quantidade_atual + %s, preco_unitario = %s WHERE id = %s',
-        (qtd_entrada, preco_novo, produto_id)
-    )
-    cursor.execute(
-        "INSERT INTO Transacoes (produto_id, quantidade_retirada, solicitante, codigo_protocolo) VALUES (%s, %s, 'FORNECEDOR / ENTRADA', 'ENTRADA')",
-        (produto_id, -qtd_entrada)
-    )
-    conexao.commit()
-    conexao.close()
+
+    try:
+        # Percorre a lista item por item
+        for i in range(len(produto_ids)):
+            p_id = produto_ids[i]
+            
+            # Pula a linha se o usuário adicionou um campo a mais mas deixou vazio
+            if not p_id or not quantidades[i] or not precos[i]:
+                continue
+
+            qtd = float(quantidades[i])
+            preco = float(precos[i])
+
+            # 1. Atualiza o produto com o novo saldo e o preço mais recente
+            cursor.execute('''
+                UPDATE Produtos 
+                SET quantidade_atual = quantidade_atual + %s, preco_unitario = %s
+                WHERE id = %s
+            ''', (qtd, preco, p_id))
+
+            # 2. Grava no histórico de transações (Entrada)
+            cursor.execute('''
+                INSERT INTO Transacoes (produto_id, usuario_id, quantidade_retirada, data_hora)
+                VALUES (%s, %s, %s, NOW())
+            ''', (p_id, session['usuario_id'], qtd))
+
+        conexao.commit()
+        flash('Entrada múltipla de materiais registrada com sucesso!', 'sucesso')
+
+    except Exception as e:
+        conexao.rollback()
+        flash(f'Erro ao registrar entrada: {e}', 'erro')
+        print(f"ERRO CRÍTICO NA ENTRADA MÚLTIPLA: {e}")
+    finally:
+        conexao.close()
+
     return redirect('/')
 
 
