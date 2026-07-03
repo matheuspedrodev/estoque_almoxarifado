@@ -35,6 +35,20 @@ def atualizar_banco_usuarios():
     finally:
         conexao.close()
 
+@app.route('/raio_x')
+def raio_x():
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+    try:
+        # Busca o nome exato de todas as colunas da tabela Usuarios
+        cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name ILIKE 'usuarios';")
+        colunas = [c[0] for c in cursor.fetchall()]
+        return f"<h1>As colunas da sua tabela Usuarios são:</h1><h2 style='color: blue;'>{colunas}</h2>"
+    except Exception as e:
+        return f"Erro: {e}"
+    finally:
+        conexao.close()
+
 @app.route('/exportar_estoque')
 def exportar_estoque():
     try:
