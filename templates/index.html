@@ -174,46 +174,8 @@
 
         <button type="submit">Cadastrar e Salvar</button>
     </form>
-</div>
-
+</div>          
             <div class="card" style="border-top-color: #28a745;">
-                <h2>Registrar Entrada (Compra/NF)</h2>
-                <small style="color: #666; display:block; margin-bottom: 10px;">Use para dar entrada em múltiplos materiais de uma vez.</small>
-                
-                <form action="/adicionar_estoque" method="POST">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    
-                    <label>Materiais Comprados:</label>
-                    <div id="lista-itens-entrada">
-                        <div class="item-entrada" style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-                            
-                            <select name="produto_id_entrada" required style="flex: 2; margin-top: 0;">
-                                <option value="">Escolha o material...</option>
-                                
-                                <optgroup label="Almoxarifado Geral">
-                                    {% for produto in produtos %} 
-                                        <option value="{{ produto[0] }}">{{ produto[1] }} (Atual: {{ produto[2] }})</option> 
-                                    {% endfor %}
-                                </optgroup>
-                                
-                                <optgroup label="Equipamentos Principais">
-                                    {% for produto in produtos_separados %} 
-                                        <option value="{{ produto[0] }}">{{ produto[1] }} (Atual: {{ produto[2] }})</option> 
-                                    {% endfor %}
-                                </optgroup>
-                            </select>
-
-                            <input type="number" name="quantidade_entrada" min="1" required placeholder="Qtd" title="Quantidade Comprada" style="flex: 1; margin-top: 0;">
-                            <input type="number" name="preco_unitario_entrada" step="0.01" min="0" required placeholder="R$ Unitário" title="Valor Unitário desta compra" style="flex: 1; margin-top: 0;">
-                            
-                            <button type="button" class="btn-remover" onclick="removerItemEntrada(this)" style="margin-top: 0;">X</button>
-                        </div>
-                    </div>
-                    
-                    <button type="button" class="btn-adicionar-linha" onclick="adicionarItemEntrada()">+ Adicionar outro material na NF</button>
-                    <button type="submit" style="background-color: #28a745;">Confirmar Entrada Completa</button>
-                </form>
-            </div><div class="card" style="border-top-color: #28a745;">
                 <h2>Registrar Entrada (Compra/NF)</h2>
                 <small style="color: #666; display:block; margin-bottom: 10px;">Use para dar entrada em múltiplos materiais de uma vez.</small>
                 
