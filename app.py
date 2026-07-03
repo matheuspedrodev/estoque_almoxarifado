@@ -21,34 +21,6 @@ csrf = CSRFProtect(app)
 def conectar_banco():
     return psycopg2.connect(os.environ.get('DATABASE_URL'))
 
-@app.route('/atualizar_banco_usuarios')
-def atualizar_banco_usuarios():
-    conexao = conectar_banco()
-    cursor = conexao.cursor()
-    try:
-        # Cria a coluna nova na tabela de transações
-        cursor.execute("ALTER TABLE Transacoes ADD COLUMN usuario_id INTEGER;")
-        conexao.commit()
-        return "<h1>Sucesso Absoluto!</h1><p>A coluna de usuários foi criada no histórico. Você já pode voltar para o sistema e baixar a planilha!</p>"
-    except Exception as e:
-        return f"Ocorreu um erro ou a coluna já existe: {e}"
-    finally:
-        conexao.close()
-
-@app.route('/raio_x')
-def raio_x():
-    conexao = conectar_banco()
-    cursor = conexao.cursor()
-    try:
-        # Busca o nome exato de todas as colunas da tabela Usuarios
-        cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name ILIKE 'usuarios';")
-        colunas = [c[0] for c in cursor.fetchall()]
-        return f"<h1>As colunas da sua tabela Usuarios são:</h1><h2 style='color: blue;'>{colunas}</h2>"
-    except Exception as e:
-        return f"Erro: {e}"
-    finally:
-        conexao.close()
-
 @app.route('/exportar_estoque')
 def exportar_estoque():
     try:
