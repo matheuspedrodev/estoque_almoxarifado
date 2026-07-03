@@ -445,9 +445,10 @@ def retirar_produto():
         p_id = produto_ids[i]
         qtd = int(quantidades[i]) if quantidades[i] else 0
         if p_id and qtd > 0:
+            # INJETADO: usuario_id e session['usuario_id'] salvos no INSERT
             cursor.execute(
-                'INSERT INTO Transacoes (produto_id, quantidade_retirada, solicitante, codigo_protocolo) VALUES (%s, %s, %s, %s)',
-                (p_id, qtd, solicitante, codigo_protocolo)
+                'INSERT INTO Transacoes (produto_id, quantidade_retirada, solicitante, codigo_protocolo, usuario_id) VALUES (%s, %s, %s, %s, %s)',
+                (p_id, qtd, solicitante, codigo_protocolo, session['usuario_id'])
             )
             cursor.execute(
                 'UPDATE Produtos SET quantidade_atual = quantidade_atual - %s WHERE id = %s',
@@ -455,6 +456,8 @@ def retirar_produto():
             )
     conexao.commit()
     conexao.close()
+    
+    flash('Retirada de materiais registrada com sucesso!', 'sucesso') # Aproveitei e coloquei o card verde aqui também!
     return redirect('/')
 
 
@@ -564,7 +567,7 @@ def exportar_csv():
     response = Response(output.getvalue().encode('utf-8-sig'), mimetype='text/csv; charset=utf-8-sig')
     response.headers["Content-Disposition"] = "attachment; filename=historico_almoxarifado.csv"
     return response
-    
+
 @app.route('/kits')
 def gerenciar_kits():
     if 'usuario_id' not in session:
@@ -725,14 +728,15 @@ def retirar_kit():
         'UPDATE Kits SET quantidade_atual = quantidade_atual - %s WHERE id = %s',
         (qtd_retirar, kit_id)
     )
+    
+    # INJETADO: usuario_id e session['usuario_id'] salvos no INSERT
     cursor.execute(
-        'INSERT INTO Transacoes (kit_id, quantidade_retirada, solicitante, codigo_protocolo) VALUES (%s, %s, %s, %s)',
-        (kit_id, qtd_retirar, solicitante, codigo_protocolo)
+        'INSERT INTO Transacoes (kit_id, quantidade_retirada, solicitante, codigo_protocolo, usuario_id) VALUES (%s, %s, %s, %s, %s)',
+        (kit_id, qtd_retirar, solicitante, codigo_protocolo, session['usuario_id'])
     )
     conexao.commit()
     conexao.close()
     
-    # CORREÇÃO AQUI: Agora retorna para a própria página de kits com mensagem de sucesso
     flash('Retirada de kit registrada com sucesso!', 'sucesso')
     return redirect('/kits')
 
