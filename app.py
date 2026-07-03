@@ -493,52 +493,55 @@ def historico_protocolos():
     )
 
 
-# === ROTA DO EXPORTAR EXCEL (AGORA COM COLUNA TIPO E USUÁRIO) ===
+# === ROTA DO EXPORTAR EXCEL (COM MODO ESPIÃO) ===
 @app.route('/exportar')
 def exportar_csv():
-    if 'usuario_id' not in session:
-        return redirect('/login')
+    try:
+        if 'usuario_id' not in session:
+            return redirect('/login')
 
-    conexao = conectar_banco()
-    cursor = conexao.cursor()
-    
-    # Adicionamos o JOIN com Usuarios e pegamos o u.nome no SELECT
-    cursor.execute('''
-        SELECT 
-            COALESCE(t.codigo_protocolo, CAST(t.id AS VARCHAR)), 
-            TO_CHAR(t.data_hora AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI:SS'),
-            CASE WHEN t.quantidade_retirada < 0 THEN 'ENTRADA' ELSE 'SAIDA' END as tipo,
-            CASE 
-                WHEN t.quantidade_retirada < 0 THEN p.nome
-                WHEN t.produto_id IS NOT NULL THEN CONCAT(p.nome, ' (', COALESCE(p.unidade_medida, 'un'), ')')
-                WHEN t.kit_id IS NOT NULL THEN CONCAT(k.nome, ' (Kit Montado)')
-                ELSE 'Item Excluído ou Desconhecido'
-            END,
-            ABS(t.quantidade_retirada), 
-            t.solicitante,
-            COALESCE(u.nome, 'Não Identificado')
-        FROM Transacoes t
-        LEFT JOIN Produtos p ON t.produto_id = p.id
-        LEFT JOIN Kits k ON t.kit_id = k.id
-        LEFT JOIN Usuarios u ON t.usuario_id = u.id
-        ORDER BY t.data_hora DESC
-    ''')
-    transacoes = cursor.fetchall()
-    conexao.close()
-    
-    output = io.StringIO()
-    writer = csv.writer(output, delimiter=';')
-    
-    # Cabeçalho atualizado com a coluna de Usuário Responsável no final
-    writer.writerow(['Nº Registro/Protocolo', 'Data e Hora', 'Tipo da Movimentacao', 'Material', 'Quantidade', 'Solicitante / Fornecedor', 'Usuário Responsável'])
-    
-    for t in transacoes:
-        writer.writerow(t)
+        conexao = conectar_banco()
+        cursor = conexao.cursor()
         
-    # .encode('utf-8-sig') garante que o Excel do Windows não desconfigure a acentuação
-    response = Response(output.getvalue().encode('utf-8-sig'), mimetype='text/csv; charset=utf-8-sig')
-    response.headers["Content-Disposition"] = "attachment; filename=historico_almoxarifado.csv"
-    return response
+        cursor.execute('''
+            SELECT 
+                COALESCE(t.codigo_protocolo, CAST(t.id AS VARCHAR)), 
+                TO_CHAR(t.data_hora AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI:SS'),
+                CASE WHEN t.quantidade_retirada < 0 THEN 'ENTRADA' ELSE 'SAIDA' END as tipo,
+                CASE 
+                    WHEN t.quantidade_retirada < 0 THEN p.nome
+                    WHEN t.produto_id IS NOT NULL THEN CONCAT(p.nome, ' (', COALESCE(p.unidade_medida, 'un'), ')')
+                    WHEN t.kit_id IS NOT NULL THEN CONCAT(k.nome, ' (Kit Montado)')
+                    ELSE 'Item Excluído ou Desconhecido'
+                END,
+                ABS(t.quantidade_retirada), 
+                t.solicitante,
+                COALESCE(u.nome, 'Não Identificado')
+            FROM Transacoes t
+            LEFT JOIN Produtos p ON t.produto_id = p.id
+            LEFT JOIN Kits k ON t.kit_id = k.id
+            LEFT JOIN Usuarios u ON t.usuario_id = u.id
+            ORDER BY t.data_hora DESC
+        ''')
+        transacoes = cursor.fetchall()
+        conexao.close()
+        
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter=';')
+        
+        writer.writerow(['Nº Registro/Protocolo', 'Data e Hora', 'Tipo da Movimentacao', 'Material', 'Quantidade', 'Solicitante / Fornecedor', 'Usuário Responsável'])
+        
+        for t in transacoes:
+            writer.writerow(t)
+            
+        response = Response(output.getvalue().encode('utf-8-sig'), mimetype='text/csv; charset=utf-8-sig')
+        response.headers["Content-Disposition"] = "attachment; filename=historico_almoxarifado.csv"
+        return response
+        
+    except Exception as e:
+        import traceback
+        erro_completo = traceback.format_exc()
+        return f"<h1>Opa! O Python encontrou este erro:</h1><pre style='background:#f4f4f4; padding:20px; border-left:5px solid red;'>{erro_completo}</pre>"
 
 @app.route('/kits')
 def gerenciar_kits():
