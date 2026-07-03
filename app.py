@@ -298,38 +298,32 @@ def excluir_produto(id):
 def editar_produto(id):
     if 'usuario_id' not in session:
         return redirect('/login')
-
+        
     conexao = conectar_banco()
     cursor = conexao.cursor()
 
-    if request.method == 'POST':
-        nome = request.form['nome']
-        quantidade = request.form['quantidade']
-        minimo = request.form['minimo']
-        maximo = request.form['maximo']
-        ponto = request.form['ponto']
-        unidade = request.form['unidade']
-        grupo_id = request.form['grupo_id']
-        preco_unitario = request.form['preco_unitario']
-
+    if request.method == 'GET':
+        # GARANTA QUE O "estoque_separado" ESTÁ NO FINAL DO SELECT
         cursor.execute('''
-            UPDATE Produtos
-            SET nome=%s, quantidade_atual=%s, estoque_minimo=%s, estoque_maximo=%s,
-                ponto_pedido=%s, unidade_medida=%s, grupo_id=%s, preco_unitario=%s
-            WHERE id=%s
-        ''', (nome, quantidade, minimo, maximo, ponto, unidade, grupo_id, preco_unitario, id))
-        conexao.commit()
-        conexao.close()
-        return redirect('/')
-    else:
-        cursor.execute("SELECT * FROM Produtos WHERE id = %s", (id,))
+            SELECT id, nome, grupo_id, unidade_medida, quantidade_atual, 
+                   preco_unitario, estoque_minimo, estoque_maximo, ponto_pedido, estoque_separado 
+            FROM Produtos WHERE id = %s
+        ''', (id,))
         produto = cursor.fetchone()
-        cursor.execute("SELECT * FROM Grupos ORDER BY nome")
+        
+        cursor.execute("SELECT id, nome FROM Grupos ORDER BY nome")
         grupos = cursor.fetchall()
         conexao.close()
+
+        if not produto:
+            flash('Produto não encontrado.', 'erro')
+            return redirect('/')
+
         return render_template('editar.html', produto=produto, grupos=grupos)
+        
+    # ... (mantenha a parte do POST igual você já tem, salvando os dados)
 
-
+    
 @app.route('/retirar', methods=['POST'])
 def retirar_produto():
     if 'usuario_id' not in session:
