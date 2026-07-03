@@ -303,7 +303,7 @@ def editar_produto(id):
     cursor = conexao.cursor()
 
     if request.method == 'GET':
-        # GARANTA QUE O "estoque_separado" ESTÁ NO FINAL DO SELECT
+        # Busca os dados atuais do produto para preencher a tela
         cursor.execute('''
             SELECT id, nome, grupo_id, unidade_medida, quantidade_atual, 
                    preco_unitario, estoque_minimo, estoque_maximo, ponto_pedido, estoque_separado 
@@ -320,10 +320,47 @@ def editar_produto(id):
             return redirect('/')
 
         return render_template('editar.html', produto=produto, grupos=grupos)
-        
-    # ... (mantenha a parte do POST igual você já tem, salvando os dados)
 
-    
+    if request.method == 'POST':
+        try:
+            # Captura os dados básicos
+            nome = request.form['nome']
+            grupo_id = request.form.get('grupo_id')
+            unidade = request.form['unidade']
+            quantidade = request.form['quantidade']
+            preco_unitario = request.form['preco_unitario']
+
+            # 🛡️ BLINDAGEM MATEMÁTICA: Se o campo vier vazio (oculto), vira 0 automaticamente
+            minimo = request.form.get('minimo')
+            minimo = int(minimo) if minimo and str(minimo).strip() != "" else 0
+
+            maximo = request.form.get('maximo')
+            maximo = int(maximo) if maximo and str(maximo).strip() != "" else 0
+
+            ponto = request.form.get('ponto')
+            ponto = int(ponto) if ponto and str(ponto).strip() != "" else 0
+
+            # Salva no banco de dados
+            cursor.execute('''
+                UPDATE Produtos 
+                SET nome = %s, grupo_id = %s, unidade_medida = %s, 
+                    quantidade_atual = %s, preco_unitario = %s, 
+                    estoque_minimo = %s, estoque_maximo = %s, ponto_pedido = %s
+                WHERE id = %s
+            ''', (nome, grupo_id, unidade, quantidade, preco_unitario, minimo, maximo, ponto, id))
+            
+            conexao.commit()
+            flash(f'Material "{nome}" atualizado com sucesso!', 'sucesso')
+            
+        except Exception as e:
+            conexao.rollback()
+            flash(f'Erro ao atualizar material: {e}', 'erro')
+            print(f"ERRO CRÍTICO NA EDIÇÃO: {e}") # Ajuda a rastrear no console do servidor
+        finally:
+            conexao.close()
+
+        return redirect('/')
+
 @app.route('/retirar', methods=['POST'])
 def retirar_produto():
     if 'usuario_id' not in session:
