@@ -21,6 +21,20 @@ csrf = CSRFProtect(app)
 def conectar_banco():
     return psycopg2.connect(os.environ.get('DATABASE_URL'))
 
+@app.route('/raio_x_produtos')
+def raio_x_produtos():
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+    try:
+        # Busca o nome exato de todas as colunas da tabela Produtos
+        cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name ILIKE 'produtos';")
+        colunas = [c[0] for c in cursor.fetchall()]
+        return f"<h1>As colunas da sua tabela Produtos são:</h1><h2 style='color: blue;'>{colunas}</h2>"
+    except Exception as e:
+        return f"Erro: {e}"
+    finally:
+        conexao.close()
+
 @app.route('/criar_estrutura_kanban')
 def criar_estrutura_kanban():
     conexao = conectar_banco()
