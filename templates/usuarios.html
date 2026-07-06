@@ -47,6 +47,7 @@
                     <select name="nivel" required>
                         <option value="operador">Operador (Apenas lançamentos físicos)</option>
                         <option value="admin">Administrador (Acesso total + Financeiro)</option>
+                        <option value="operador logistico">Operador Logístico (Acesso ao Kanban/WMS)</option>
                     </select>
                 </div>
                 <button type="submit">Salvar Novo Usuário</button>
@@ -67,7 +68,15 @@
                     {% for usu in usuarios %}
                     <tr>
                         <td><b>{{ usu[1] }}</b></td>
-                        <td>{{ 'Administrador 🛠️' if usu[2] == 'admin' else 'Operador 📦' }}</td>
+                        <td>
+                            {% if usu[2] == 'admin' %}
+                                Administrador 🛠️
+                            {% elif usu[2] == 'operador logistico' %}
+                                Operador Logístico 🚚
+                            {% else %}
+                                Operador 📦
+                            {% endif %}
+                        </td>
                         <td>
                             {% if usu[0] != session['usuario_id'] %}
                                 <a href="/excluir_usuario/{{ usu[0] }}" style="text-decoration: none; font-size: 18px;" onclick="return confirm('Tem certeza que deseja remover o acesso deste usuário?');">🗑️</a>
