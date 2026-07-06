@@ -576,7 +576,7 @@ def novo_pedido():
             
             if p_id and qtd > 0:
                 # Vincula o material ao pedido
-                cursor.execute('INSERT INTO Itens_Pedido (pedido_id, produto_id, quantity) VALUES (%s, %s, %s)', (pedido_id, p_id, qtd))
+                cursor.execute('INSERT INTO Itens_Pedido (pedido_id, produto_id, quantidade) VALUES (%s, %s, %s)', (pedido_id, p_id, qtd))
                 
                 # MATEMÁTICA: Remove da prateleira geral (Reserva Imediata)
                 cursor.execute('UPDATE Produtos SET quantidade_atual = quantidade_atual - %s WHERE id = %s', (qtd, p_id))
