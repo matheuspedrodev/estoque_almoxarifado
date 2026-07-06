@@ -475,6 +475,11 @@ def painel_logistica():
     if 'usuario_id' not in session:
         return redirect('/login')
 
+# BLINDAGEM DE ACESSO: Só admin e operador logístico passam
+    if session.get('usuario_nivel') not in ['admin', 'operador logistico']:
+        flash('Acesso negado. Esta área é restrita à equipe de Logística.', 'erro')
+        return redirect('/')
+
     conexao = conectar_banco()
     cursor = conexao.cursor()
 
@@ -535,6 +540,11 @@ def painel_logistica():
 def novo_pedido():
     if 'usuario_id' not in session:
         return redirect('/login')
+
+# BLINDAGEM DE ACESSO: Só admin e operador logístico passam
+    if session.get('usuario_nivel') not in ['admin', 'operador logistico']:
+        flash('Acesso negado. Esta área é restrita à equipe de Logística.', 'erro')
+        return redirect('/')
 
     numero_pedido = request.form['numero_pedido'].strip()
     cliente = request.form['cliente'].strip()
@@ -604,6 +614,11 @@ def atualizar_status_pedido(pedido_id, novo_status):
     if 'usuario_id' not in session:
         return redirect('/login')
 
+# BLINDAGEM DE ACESSO: Só admin e operador logístico passam
+    if session.get('usuario_nivel') not in ['admin', 'operador logistico']:
+        flash('Acesso negado. Esta área é restrita à equipe de Logística.', 'erro')
+        return redirect('/')
+
     # Valida para evitar que digitem status inventados na URL
     if novo_status not in ['SEPARADO', 'EM ROTA', 'ENTREGUE']:
         return redirect('/logistica')
@@ -624,6 +639,11 @@ def atualizar_status_pedido(pedido_id, novo_status):
 def editar_pedido(pedido_id):
     if 'usuario_id' not in session:
         return redirect('/login')
+
+# BLINDAGEM DE ACESSO: Só admin e operador logístico passam
+    if session.get('usuario_nivel') not in ['admin', 'operador logistico']:
+        flash('Acesso negado. Esta área é restrita à equipe de Logística.', 'erro')
+        return redirect('/')
 
     conexao = conectar_banco()
     cursor = conexao.cursor()
