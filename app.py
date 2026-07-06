@@ -21,6 +21,40 @@ csrf = CSRFProtect(app)
 def conectar_banco():
     return psycopg2.connect(os.environ.get('DATABASE_URL'))
 
+@app.route('/criar_estrutura_kanban')
+def criar_estrutura_kanban():
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+    try:
+        # 1. Cria a tabela principal de Pedidos
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Pedidos (
+                id SERIAL PRIMARY KEY,
+                numero_pedido VARCHAR(50) UNIQUE NOT NULL,
+                cliente VARCHAR(255) NOT NULL,
+                status VARCHAR(50) DEFAULT 'SEPARADO', -- Valores: SEPARADO, EM ROTA, ENTREGUE
+                data_criacao TIMESTAMP DEFAULT NOW()
+            );
+        ''')
+        
+        # 2. Cria a tabela de Itens do Pedido (Muitos itens para 1 pedido)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Itens_Pedido (
+                id SERIAL PRIMARY KEY,
+                pedido_id INTEGER REFERENCES Pedidos(id) ON DELETE CASCADE,
+                produto_id INTEGER REFERENCES Produtos(id),
+                quantidade INTEGER NOT NULL
+            );
+        ''')
+        
+        conexao.commit()
+        return "<h1>Estrutura do Kanban Criada!</h1><p>As tabelas 'Pedidos' e 'Itens_Pedido' já estão prontas no banco de dados. Podemos avançar para o código do painel!</p>"
+    except Exception as e:
+        conexao.rollback()
+        return f"Erro ao criar estrutura: {e}"
+    finally:
+        conexao.close()
+
 @app.route('/exportar_estoque')
 def exportar_estoque():
     try:
