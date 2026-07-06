@@ -64,9 +64,7 @@
             <form action="/logistica/novo_pedido" method="POST">
                 
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                
-                <div class="form-row">
-                    <input type="text" name="numero_pedido" placeholder="Nº do Pedido/NF" required style="flex: 1;">
+        
                 <div class="form-row">
                     <input type="text" name="numero_pedido" placeholder="Nº do Pedido/NF" required style="flex: 1;">
                     <input type="text" name="cliente" placeholder="Nome do Cliente / Destino" required style="flex: 2;">
