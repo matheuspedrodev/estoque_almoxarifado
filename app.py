@@ -924,59 +924,72 @@ def gerenciar_kits():
     conexao = conectar_banco()
     cursor = conexao.cursor()
 
-    # 1. Busca todos os kits
-    cursor.execute("SELECT id, nome, quantidade_atual FROM Kits ORDER BY nome")
-    lista_kits_bruta = cursor.fetchall()
+    try:
+        # 1. Busca todos os kits
+        cursor.execute("SELECT id, nome, quantidade_atual FROM Kits ORDER BY nome")
+        lista_kits_bruta = cursor.fetchall()
 
-    # 2. Busca os ingredientes e seus respectivos PREÇOS (p.preco)
-    # ATENÇÃO: Se a sua coluna de preço tiver outro nome (ex: p.valor), mude abaixo!
-    cursor.execute('''
-        SELECT ki.kit_id, p.nome, ki.quantidade_necessaria, COALESCE(p.unidade_medida, 'un'), p.preco
-        FROM Kit_Itens ki
-        JOIN Produtos p ON ki.produto_id = p.id
-    ''')
-    composicao_bruta = cursor.fetchall()
+        # 2. Busca os ingredientes e seus respectivos PREÇOS
+        cursor.execute('''
+            SELECT ki.kit_id, p.nome, ki.quantidade_necessaria, COALESCE(p.unidade_medida, 'un'), p.preco_unitario
+            FROM Kit_Itens ki
+            JOIN Produtos p ON ki.produto_id = p.id
+        ''')
+        composicao_bruta = cursor.fetchall()
 
-    # 3. Monta um "pacote" organizado calculando o custo total dos itens
-    lista_kits = []
-    for kit in lista_kits_bruta:
-        itens_deste_kit = []
-        valor_total_kit = 0.0 # Inicializa o somador do custo
+        # 3. Monta um "pacote" organizado calculando o custo total dos itens
+        lista_kits = []
+        for kit in lista_kits_bruta:
+            itens_deste_kit = []
+            valor_total_kit = 0.0 # Inicializa o somador do custo
+            
+            for comp in composicao_bruta:
+                if comp[0] == kit[0]:
+                    # MATEMÁTICA BLINDADA: Garante que quantidades e preços virem números válidos
+                    try:
+                        qtd = float(comp[2]) if comp[2] is not None else 0.0
+                    except:
+                        qtd = 0.0
+
+                    try:
+                        # Se o preço for nulo, vira 0. Se tiver vírgula, troca por ponto.
+                        preco_str = str(comp[4]).replace(',', '.') if comp[4] is not None else '0'
+                        preco = float(preco_str)
+                    except:
+                        preco = 0.0
+                    
+                    # Faz a conta e guarda no valor total do kit
+                    valor_total_kit += (qtd * preco)
+                    
+                    itens_deste_kit.append({
+                        'nome': comp[1], 
+                        'quantidade': comp[2], 
+                        'unidade': comp[3]
+                    })
+                    
+            lista_kits.append({
+                'id': kit[0],
+                'nome': kit[1],
+                'quantidade_atual': kit[2],
+                'itens': itens_deste_kit,
+                'valor_total': valor_total_kit
+            })
+
+        cursor.execute("SELECT id, nome FROM Produtos ORDER BY nome")
+        lista_produtos = cursor.fetchall()
         
-        for comp in composicao_bruta:
-            if comp[0] == kit[0]:
-                qtd_necessaria = comp[2]
-                preco_unitario = float(comp[4]) if comp[4] else 0.0
-                
-                # Multiplica a quantidade pelo valor unitário e soma ao total do kit
-                valor_total_kit += (qtd_necessaria * preco_unitario)
-                
-                itens_deste_kit.append({
-                    'nome': comp[1], 
-                    'quantidade': qtd_necessaria, 
-                    'unidade': comp[3]
-                })
-                
-        lista_kits.append({
-            'id': kit[0],
-            'nome': kit[1],
-            'quantidade_atual': kit[2],
-            'itens': itens_deste_kit,
-            'valor_total': valor_total_kit # Nova chave enviada ao HTML
-        })
+        # Envia para o HTML se tudo deu certo
+        return render_template('kits.html', kits=lista_kits, produtos=lista_produtos)
 
-    # 2. Busca os ingredientes e seus respectivos PREÇOS
-    cursor.execute('''
-        SELECT ki.kit_id, p.nome, ki.quantidade_necessaria, COALESCE(p.unidade_medida, 'un'), p.preco_unitario
-        FROM Kit_Itens ki
-        JOIN Produtos p ON ki.produto_id = p.id
-    ''')
-    lista_produtos = cursor.fetchall()
-    conexao.close()
+    except Exception as e:
+        # O DEDO DURO: Se der erro, imprime na tela em vez de dar o Erro 500 genérico
+        import traceback
+        erro_real = traceback.format_exc()
+        return f"<h1>Opa! Achamos o culpado:</h1><pre style='background: #f8f9fa; padding: 20px; color: red;'>{erro_real}</pre>"
+    finally:
+        conexao.close()
 
-    # Agora enviamos a lista montada e rica em detalhes para o HTML
-    return render_template('kits.html', kits=lista_kits, produtos=lista_produtos)
-
+        
 @app.route('/criar_kit', methods=['POST'])
 def criar_kit():
     if 'usuario_id' not in session:
