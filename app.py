@@ -741,6 +741,60 @@ def editar_pedido(pedido_id):
 
         return redirect('/logistica')
 
+@app.route('/logistica/excluir/<int:pedido_id>')
+def excluir_pedido(pedido_id):
+    if 'usuario_id' not in session:
+        return redirect('/login')
+
+    # BLINDAGEM MÁXIMA: Apenas Administradores podem excluir
+    if session.get('usuario_nivel') != 'admin':
+        flash('Acesso negado. Apenas o Administrador pode excluir pedidos.', 'erro')
+        return redirect('/logistica')
+
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+
+    try:
+        # 1. Pega os dados do pedido para os logs
+        cursor.execute('SELECT numero_pedido, cliente FROM Pedidos WHERE id = %s', (pedido_id,))
+        pedido = cursor.fetchone()
+        
+        if not pedido:
+            return redirect('/logistica')
+            
+        numero_pedido, cliente = pedido[0], pedido[1]
+
+        # 2. Busca os itens reservados para fazer o estorno
+        cursor.execute('SELECT produto_id, quantidade FROM Itens_Pedido WHERE pedido_id = %s', (pedido_id,))
+        itens = cursor.fetchall()
+
+        for item in itens:
+            p_id, qtd = item[0], item[1]
+
+            # Devolve o saldo para a prateleira
+            cursor.execute('UPDATE Produtos SET quantidade_atual = quantidade_atual + %s WHERE id = %s', (qtd, p_id))
+
+            # Grava a devolução no histórico geral (quantidade negativa no Excel = Entrada)
+            cursor.execute('''
+                INSERT INTO Transacoes (produto_id, quantidade_retirada, solicitante, codigo_protocolo, usuario_id)
+                VALUES (%s, %s, %s, %s, %s)
+            ''', (p_id, -qtd, f"Cancelamento/Exclusão WMS: {cliente}", numero_pedido, session['usuario_id']))
+
+        # 3. Apaga os registros das tabelas do Kanban
+        cursor.execute('DELETE FROM Itens_Pedido WHERE pedido_id = %s', (pedido_id,))
+        cursor.execute('DELETE FROM Pedidos WHERE id = %s', (pedido_id,))
+
+        conexao.commit()
+        flash(f'O Pedido Nº {numero_pedido} foi excluído e os materiais voltaram ao estoque!', 'sucesso')
+
+    except Exception as e:
+        conexao.rollback()
+        flash(f'Erro ao excluir o pedido: {e}', 'erro')
+    finally:
+        conexao.close()
+
+    return redirect('/logistica')
+
 # === ROTA DO HISTÓRICO SEPARADO ===
 @app.route('/historico')
 def historico_protocolos():

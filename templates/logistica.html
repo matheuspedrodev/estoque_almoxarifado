@@ -107,6 +107,9 @@
                         </ul>
                     </div>
                     <div class="card-acoes">
+                        {% if session.get('usuario_nivel') == 'admin' %}
+                            <a href="/logistica/excluir/{{ p.id }}" class="btn-acao" style="background-color: #dc3545;" onclick="return confirm('ATENÇÃO: Deseja realmente excluir este pedido? Todos os itens voltarão para o estoque.');">🗑️ Excluir</a>
+                        {% endif %}
                         <a href="/logistica/editar/{{ p.id }}" class="btn-acao" style="background-color: #17a2b8;">✏️ Editar</a>
                         <a href="/logistica/atualizar_status/{{ p.id }}/EM ROTA" class="btn-acao btn-avancar">Carregar no Veículo →</a>
                     </div>
@@ -130,6 +133,9 @@
                         </ul>
                     </div>
                     <div class="card-acoes">
+                        {% if session.get('usuario_nivel') == 'admin' %}
+                            <a href="/logistica/excluir/{{ p.id }}" class="btn-acao" style="background-color: #dc3545;" onclick="return confirm('ATENÇÃO: Deseja realmente excluir este pedido? Todos os itens voltarão para o estoque.');">🗑️ Excluir</a>
+                        {% endif %}
                         <a href="/logistica/editar/{{ p.id }}" class="btn-acao" style="background-color: #17a2b8;">✏️ Editar</a>
                         <a href="/logistica/atualizar_status/{{ p.id }}/SEPARADO" class="btn-acao btn-voltar-status">← Voltar</a>
                         <a href="/logistica/atualizar_status/{{ p.id }}/ENTREGUE" class="btn-acao btn-avancar" style="background-color: #28a745;">✔ Finalizar Entrega</a>
@@ -154,6 +160,9 @@
                         </ul>
                     </div>
                     <div class="card-acoes">
+                        {% if session.get('usuario_nivel') == 'admin' %}
+                            <a href="/logistica/excluir/{{ p.id }}" class="btn-acao" style="background-color: #dc3545;" onclick="return confirm('ATENÇÃO: Deseja realmente excluir este pedido? Todos os itens voltarão para o estoque.');">🗑️ Excluir</a>
+                        {% endif %}
                         <a href="/logistica/atualizar_status/{{ p.id }}/EM ROTA" class="btn-acao btn-voltar-status">Desfazer Entrega</a>
                     </div>
                 </div>
