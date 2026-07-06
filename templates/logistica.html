@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logística e Expedição</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        /* Cabeçalho e Botões Gerais */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .btn-voltar { background-color: #6c757d; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; }
+        .btn-verde { background-color: #28a745; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        
+        /* Card de Novo Pedido */
+        .card-novo { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 30px; border-top: 4px solid #007bff; }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .form-row input, .form-row select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .item-pedido { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .btn-remover { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        
+        /* Quadro Kanban */
+        .kanban-board { display: flex; gap: 20px; align-items: flex-start; }
+        .kanban-col { flex: 1; background: #e2e4e6; border-radius: 8px; padding: 15px; min-height: 500px; }
+        .kanban-col h3 { text-align: center; margin-top: 0; color: #333; padding-bottom: 10px; border-bottom: 2px solid #ccc; }
+        
+        /* Cards dos Pedidos */
+        .card-pedido { background: white; padding: 15px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.15); margin-bottom: 15px; border-left: 5px solid #ccc; }
+        .card-pedido.separado { border-left-color: #28a745; }
+        .card-pedido.em-rota { border-left-color: #ffc107; }
+        .card-pedido.entregue { border-left-color: #17a2b8; opacity: 0.8; }
+        
+        .card-header { font-weight: bold; font-size: 1.1em; margin-bottom: 5px; color: #0056b3; }
+        .card-cliente { color: #555; margin-bottom: 10px; font-size: 0.9em; }
+        .card-itens { background: #f9f9f9; padding: 10px; border-radius: 4px; font-size: 0.85em; margin-bottom: 15px; }
+        .card-itens ul { margin: 0; padding-left: 20px; }
+        
+        .card-acoes { display: flex; gap: 5px; justify-content: flex-end; }
+        .btn-acao { padding: 5px 10px; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8em; text-decoration: none; color: white; }
+        .btn-avancar { background-color: #007bff; }
+        .btn-voltar-status { background-color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Logística e Expedição (Módulos/Inversores)</h1>
+            <a href="/" class="btn-voltar">← Voltar ao Almoxarifado</a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div style="padding: 15px; margin-bottom: 20px; border-radius: 5px; color: white; background-color: {% if category == 'erro' %}#dc3545{% else %}#28a745{% endif %};">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="card-novo">
+            <h3>Separar Novo Pedido</h3>
+            <form action="/logistica/novo_pedido" method="POST">
+                <div class="form-row">
+                    <input type="text" name="numero_pedido" placeholder="Nº do Pedido/NF" required style="flex: 1;">
+                    <input type="text" name="cliente" placeholder="Nome do Cliente / Destino" required style="flex: 2;">
+                </div>
+                
+                <label style="font-weight: bold; display: block; margin-bottom: 10px;">Equipamentos a Separar:</label>
+                <div id="lista-itens-pedido">
+                    <div class="item-pedido">
+                        <select name="produto_id_item" required style="flex: 2;">
+                            <option value="">Escolha o equipamento...</option>
+                            {% for produto in produtos_separados %}
+                                <option value="{{ produto[0] }}">{{ produto[1] }} (Disponível: {{ produto[2] }})</option>
+                            {% endfor %}
+                        </select>
+                        <input type="number" name="quantidade_item" min="1" required placeholder="Qtd" style="flex: 1;">
+                        <button type="button" class="btn-remover" onclick="removerItemPedido(this)">X</button>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; margin-top: 15px;">
+                    <button type="button" style="padding: 10px; cursor: pointer;" onclick="adicionarItemPedido()">+ Adicionar outro equipamento</button>
+                    <button type="submit" class="btn-verde">Confirmar Separação (Criar Card)</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="kanban-board">
+            
+            <div class="kanban-col">
+                <h3 style="border-bottom-color: #28a745;">SEPARADO (No Galpão)</h3>
+                {% for p in separados %}
+                <div class="card-pedido separado">
+                    <div class="card-header">Pedido #{{ p.numero_pedido }}</div>
+                    <div class="card-cliente">👤 {{ p.cliente }}</div>
+                    <div class="card-itens">
+                        <ul>
+                            {% for item in p.itens %}
+                                <li>{{ item.quantidade }}x {{ item.nome }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    <div class="card-acoes">
+                        <a href="/logistica/atualizar_status/{{ p.id }}/EM ROTA" class="btn-acao btn-avancar">Carregar no Veículo →</a>
+                    </div>
+                </div>
+                {% else %}
+                <p style="text-align: center; color: #777;">Nenhum pedido aguardando.</p>
+                {% endfor %}
+            </div>
+
+            <div class="kanban-col">
+                <h3 style="border-bottom-color: #ffc107;">EM ROTA (Em Trânsito)</h3>
+                {% for p in em_rota %}
+                <div class="card-pedido em-rota">
+                    <div class="card-header">Pedido #{{ p.numero_pedido }}</div>
+                    <div class="card-cliente">👤 {{ p.cliente }}</div>
+                    <div class="card-itens">
+                        <ul>
+                            {% for item in p.itens %}
+                                <li>{{ item.quantidade }}x {{ item.nome }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    <div class="card-acoes">
+                        <a href="/logistica/atualizar_status/{{ p.id }}/SEPARADO" class="btn-acao btn-voltar-status">← Voltar</a>
+                        <a href="/logistica/atualizar_status/{{ p.id }}/ENTREGUE" class="btn-acao btn-avancar" style="background-color: #28a745;">✔ Finalizar Entrega</a>
+                    </div>
+                </div>
+                {% else %}
+                <p style="text-align: center; color: #777;">Nenhum veículo em rota.</p>
+                {% endfor %}
+            </div>
+
+            <div class="kanban-col">
+                <h3 style="border-bottom-color: #17a2b8;">ENTREGUE COM SUCESSO</h3>
+                {% for p in entregues %}
+                <div class="card-pedido entregue">
+                    <div class="card-header">Pedido #{{ p.numero_pedido }}</div>
+                    <div class="card-cliente">👤 {{ p.cliente }}</div>
+                    <div class="card-itens">
+                        <ul>
+                            {% for item in p.itens %}
+                                <li>{{ item.quantidade }}x {{ item.nome }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    <div class="card-acoes">
+                        <a href="/logistica/atualizar_status/{{ p.id }}/EM ROTA" class="btn-acao btn-voltar-status">Desfazer Entrega</a>
+                    </div>
+                </div>
+                {% else %}
+                <p style="text-align: center; color: #777;">Histórico limpo.</p>
+                {% endfor %}
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        function adicionarItemPedido() {
+            const container = document.getElementById('lista-itens-pedido');
+            const primeiroItem = container.querySelector('.item-pedido');
+            const novoItem = primeiroItem.cloneNode(true);
+            
+            const inputs = novoItem.querySelectorAll('input');
+            inputs.forEach(input => input.value = '');
+            novoItem.querySelector('select').value = '';
+            
+            container.appendChild(novoItem);
+        }
+        
+        function removerItemPedido(botao) {
+            const container = document.getElementById('lista-itens-pedido');
+            if (container.children.length > 1) { 
+                botao.parentElement.remove(); 
+            }
+        }
+    </script>
+</body>
+</html>

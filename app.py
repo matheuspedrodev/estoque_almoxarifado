@@ -599,6 +599,27 @@ def novo_pedido():
 
     return redirect('/logistica')
 
+@app.route('/logistica/atualizar_status/<int:pedido_id>/<novo_status>')
+def atualizar_status_pedido(pedido_id, novo_status):
+    if 'usuario_id' not in session:
+        return redirect('/login')
+
+    # Valida para evitar que digitem status inventados na URL
+    if novo_status not in ['SEPARADO', 'EM ROTA', 'ENTREGUE']:
+        return redirect('/logistica')
+
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+    try:
+        cursor.execute('UPDATE Pedidos SET status = %s WHERE id = %s', (novo_status, pedido_id))
+        conexao.commit()
+    except Exception as e:
+        print(f"Erro ao mover card: {e}")
+    finally:
+        conexao.close()
+
+    return redirect('/logistica')
+
 # === ROTA DO HISTÓRICO SEPARADO ===
 @app.route('/historico')
 def historico_protocolos():
