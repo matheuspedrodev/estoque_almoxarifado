@@ -965,7 +965,12 @@ def gerenciar_kits():
             'valor_total': valor_total_kit # Nova chave enviada ao HTML
         })
 
-    cursor.execute("SELECT id, nome FROM Produtos ORDER BY nome")
+    # 2. Busca os ingredientes e seus respectivos PREÇOS
+    cursor.execute('''
+        SELECT ki.kit_id, p.nome, ki.quantidade_necessaria, COALESCE(p.unidade_medida, 'un'), p.preco_unitario
+        FROM Kit_Itens ki
+        JOIN Produtos p ON ki.produto_id = p.id
+    ''')
     lista_produtos = cursor.fetchall()
     conexao.close()
 
