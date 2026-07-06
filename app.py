@@ -466,6 +466,138 @@ def retirar_produto():
     flash('Retirada de materiais registrada com sucesso!', 'sucesso') # Aproveitei e coloquei o card verde aqui também!
     return redirect('/')
 
+# ========================================================
+#   PARTE 2: MOTOR DO KANBAN DE LOGÍSTICA (MÓDULOS/INVERSORES)
+# ========================================================
+
+@app.route('/logistica')
+def painel_logistica():
+    if 'usuario_id' not in session:
+        return redirect('/login')
+
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+
+    # 1. Busca todos os pedidos e seus respectivos itens em um único cruzamento (JOIN)
+    cursor.execute('''
+        SELECT p.id, p.numero_pedido, p.cliente, p.status,
+               pr.nome, ip.quantidade, pr.unidade_medida
+        FROM Pedidos p
+        LEFT JOIN Itens_Pedido ip ON p.id = ip.pedido_id
+        LEFT JOIN Produtos pr ON ip.produto_id = pr.id
+        ORDER BY p.data_criacao ASC
+    ''')
+    dados = cursor.fetchall()
+
+    # Organiza os dados brutos do banco em um dicionário estruturado para o HTML
+    pedidos = {}
+    for linha in dados:
+        p_id = linha[0]
+        if p_id not in pedidos:
+            pedidos[p_id] = {
+                'id': p_id,
+                'numero_pedido': linha[1],
+                'cliente': linha[2],
+                'status': linha[3],
+                'itens': []
+            }
+        # Se o pedido tiver itens cadastrados, adiciona na lista interna dele
+        if linha[4]: 
+            pedidos[p_id]['itens'].append({
+                'nome': linha[4],
+                'quantidade': linha[5],
+                'unidade': linha[6] or 'un'
+            })
+
+    # Separa os pedidos em 3 listas com base no status atual do Kanban
+    separados = [p for p in pedidos.values() if p['status'] == 'SEPARADO']
+    em_rota = [p for p in pedidos.values() if p['status'] == 'EM ROTA']
+    entregues = [p for p in pedidos.values() if p['status'] == 'ENTREGUE']
+
+    # 2. Busca apenas Módulos e Inversores disponíveis para o formulário de novos pedidos
+    cursor.execute('''
+        SELECT id, nome, quantidade_atual 
+        FROM Produtos 
+        WHERE estoque_separado = TRUE 
+        ORDER BY nome
+    ''')
+    produtos_separados = cursor.fetchall()
+    conexao.close()
+
+    return render_template('logistica.html', 
+                           separados=separados, 
+                           em_rota=em_rota, 
+                           entregues=entregues, 
+                           produtos_separados=produtos_separados)
+
+
+@app.route('/logistica/novo_pedido', methods=['POST'])
+def novo_pedido():
+    if 'usuario_id' not in session:
+        return redirect('/login')
+
+    numero_pedido = request.form['numero_pedido'].strip()
+    cliente = request.form['cliente'].strip()
+    produto_ids = request.form.getlist('produto_id_item')
+    quantidades = request.form.getlist('quantidade_item')
+
+    if not numero_pedido or not cliente or not produto_ids:
+        flash('Por favor, preencha todos os campos do pedido.', 'erro')
+        return redirect('/logistica')
+
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+
+    try:
+        # 1. VALIDAÇÃO DE SEGURANÇA: Confere o estoque de todas as linhas antes de mexer no banco
+        for i in range(len(produto_ids)):
+            p_id = produto_ids[i]
+            qtd = int(quantidades[i]) if quantidades[i] else 0
+            
+            if p_id and qtd > 0:
+                cursor.execute('SELECT quantidade_atual, nome FROM Produtos WHERE id = %s', (p_id,))
+                prod = cursor.fetchone()
+                if prod and prod[0] < qtd:
+                    conexao.close()
+                    flash(f'Estoque insuficiente para "{prod[1]}". Disponível: {prod[0]}, Solicitado: {qtd}.', 'erro')
+                    return redirect('/logistica')
+
+        # 2. CRIA A CAPA DO PEDIDO (Gera o card na coluna SEPARADO)
+        cursor.execute('''
+            INSERT INTO Pedidos (numero_pedido, cliente, status) 
+            VALUES (%s, %s, 'SEPARADO') RETURNING id
+        ''', (numero_pedido, cliente))
+        pedido_id = cursor.fetchone()[0]
+
+        # 3. INSERSÃO DOS ITENS, SUBTRAÇÃO DO ESTOQUE E LOG DE TRANSAÇÃO
+        for i in range(len(produto_ids)):
+            p_id = produto_ids[i]
+            qtd = int(quantidades[i]) if quantidades[i] else 0
+            
+            if p_id and qtd > 0:
+                # Vincula o material ao pedido
+                cursor.execute('INSERT INTO Itens_Pedido (pedido_id, produto_id, quantity) VALUES (%s, %s, %s)', (pedido_id, p_id, qtd))
+                
+                # MATEMÁTICA: Remove da prateleira geral (Reserva Imediata)
+                cursor.execute('UPDATE Produtos SET quantidade_atual = quantidade_atual - %s WHERE id = %s', (qtd, p_id))
+                
+                # AUDITORIA: Grava no histórico geral quem realizou essa reserva/separação
+                cursor.execute('''
+                    INSERT INTO Transacoes (produto_id, quantidade_retirada, solicitante, codigo_protocolo, usuario_id)
+                    VALUES (%s, %s, %s, %s, %s)
+                ''', (p_id, qtd, f"Reserva: {cliente}", numero_pedido, session['usuario_id']))
+
+        conexao.commit()
+        flash(f'Pedido Nº {numero_pedido} criado e materiais reservados com sucesso!', 'sucesso')
+
+    except Exception as e:
+        conexao.rollback()
+        flash(f'Erro ao processar a separação do pedido: {e}', 'erro')
+        print(f"ERRO CRÍTICO KANBAN: {e}")
+    finally:
+        conexao.close()
+
+    return redirect('/logistica')
 
 # === ROTA DO HISTÓRICO SEPARADO ===
 @app.route('/historico')
