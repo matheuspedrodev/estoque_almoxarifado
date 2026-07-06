@@ -914,26 +914,41 @@ def gerenciar_kits():
     cursor.execute("SELECT id, nome, quantidade_atual FROM Kits ORDER BY nome")
     lista_kits_bruta = cursor.fetchall()
 
-    # 2. Busca os ingredientes de TODOS os kits de uma vez (Evita sobrecarregar o banco)
+    # 2. Busca os ingredientes e seus respectivos PREÇOS (p.preco)
+    # ATENÇÃO: Se a sua coluna de preço tiver outro nome (ex: p.valor), mude abaixo!
     cursor.execute('''
-        SELECT ki.kit_id, p.nome, ki.quantidade_necessaria, COALESCE(p.unidade_medida, 'un')
+        SELECT ki.kit_id, p.nome, ki.quantidade_necessaria, COALESCE(p.unidade_medida, 'un'), p.preco
         FROM Kit_Itens ki
         JOIN Produtos p ON ki.produto_id = p.id
     ''')
     composicao_bruta = cursor.fetchall()
 
-    # 3. Monta um "pacote" organizado juntando o kit com os seus itens
+    # 3. Monta um "pacote" organizado calculando o custo total dos itens
     lista_kits = []
     for kit in lista_kits_bruta:
-        itens_deste_kit = [
-            {'nome': comp[1], 'quantidade': comp[2], 'unidade': comp[3]}
-            for comp in composicao_bruta if comp[0] == kit[0]
-        ]
+        itens_deste_kit = []
+        valor_total_kit = 0.0 # Inicializa o somador do custo
+        
+        for comp in composicao_bruta:
+            if comp[0] == kit[0]:
+                qtd_necessaria = comp[2]
+                preco_unitario = float(comp[4]) if comp[4] else 0.0
+                
+                # Multiplica a quantidade pelo valor unitário e soma ao total do kit
+                valor_total_kit += (qtd_necessaria * preco_unitario)
+                
+                itens_deste_kit.append({
+                    'nome': comp[1], 
+                    'quantidade': qtd_necessaria, 
+                    'unidade': comp[3]
+                })
+                
         lista_kits.append({
             'id': kit[0],
             'nome': kit[1],
             'quantidade_atual': kit[2],
-            'itens': itens_deste_kit
+            'itens': itens_deste_kit,
+            'valor_total': valor_total_kit # Nova chave enviada ao HTML
         })
 
     cursor.execute("SELECT id, nome FROM Produtos ORDER BY nome")
@@ -942,7 +957,6 @@ def gerenciar_kits():
 
     # Agora enviamos a lista montada e rica em detalhes para o HTML
     return render_template('kits.html', kits=lista_kits, produtos=lista_produtos)
-
 
 @app.route('/criar_kit', methods=['POST'])
 def criar_kit():

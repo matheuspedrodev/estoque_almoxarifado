@@ -123,8 +123,15 @@
                     <div class="kit-header">
                         <div>
                             <h3>{{ kit.nome }}</h3>
+                            
                             {% if session.get('usuario_nivel') == 'admin' %}
-                            <div style="display: flex; gap: 15px; margin-top: 5px;">
+                            <div style="color: #28a745; font-weight: bold; font-size: 14px; margin-top: 4px;">
+                                💵 Custo Unitário: R$ {{ "%.2f"|format(kit.valor_total)|replace('.', ',') }}
+                            </div>
+                            {% endif %}
+
+                            {% if session.get('usuario_nivel') == 'admin' %}
+                            <div style="display: flex; gap: 15px; margin-top: 8px;">
                                 <a href="/editar_kit/{{ kit.id }}" 
                                    style="color: #0d6efd; font-size: 13px; text-decoration: none; font-weight: bold;">
                                    ✏️ Editar
@@ -181,11 +188,9 @@
     <script>
         function adicionarLinha() {
             const container = document.getElementById('itens-container');
-            // Clona a primeira linha para manter as opções do select
             const primeiraLinha = container.querySelector('.item-row');
             const novaLinha = primeiraLinha.cloneNode(true);
             
-            // Limpa os valores copiados
             novaLinha.querySelector('select').value = "";
             novaLinha.querySelector('input').value = "";
             
@@ -194,7 +199,6 @@
 
         function removerLinha(botao) {
             const container = document.getElementById('itens-container');
-            // Não permite excluir a última linha que sobrou
             if (container.querySelectorAll('.item-row').length > 1) {
                 botao.parentElement.remove();
             } else {
