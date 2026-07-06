@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar Pedido</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .form-row input, .form-row select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .item-pedido { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .btn { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; color: white; text-decoration: none; }
+        .btn-verde { background-color: #28a745; }
+        .btn-cinza { background-color: #6c757d; }
+        .btn-remover { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>✏️ Editar Pedido #{{ pedido[1] }}</h2>
+            <span style="background: #e2e3e5; padding: 5px 10px; border-radius: 5px;">Status: {{ pedido[3] }}</span>
+        </div>
+        
+        <hr style="margin-bottom: 20px;">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div style="padding: 15px; margin-bottom: 20px; border-radius: 5px; color: white; background-color: {% if category == 'erro' %}#dc3545{% else %}#28a745{% endif %};">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form action="/logistica/editar/{{ pedido[0] }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <label style="font-weight: bold;">Cliente / Destino:</label>
+            <div class="form-row" style="margin-top: 5px;">
+                <input type="text" name="cliente" value="{{ pedido[2] }}" required style="flex: 1;">
+            </div>
+            
+            <label style="font-weight: bold; display: block; margin-top: 20px; margin-bottom: 10px;">Equipamentos no Pedido:</label>
+            
+            <div id="lista-itens-pedido">
+                {% for item in itens_atuais %}
+                <div class="item-pedido">
+                    <select name="produto_id_item" required style="flex: 2;">
+                        <option value="">Escolha o equipamento...</option>
+                        {% for produto in produtos_separados %}
+                            <option value="{{ produto[0] }}" {% if produto[0] == item[0] %}selected{% endif %}>
+                                {{ produto[1] }} (Disponível: {{ produto[2] }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <input type="number" name="quantidade_item" min="1" value="{{ item[1] }}" required placeholder="Qtd" style="flex: 1;">
+                    <button type="button" class="btn-remover" onclick="removerItemPedido(this)">X</button>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 20px; align-items: center;">
+                <button type="button" style="padding: 10px; cursor: pointer;" onclick="adicionarItemPedido()">+ Adicionar outro equipamento</button>
+                
+                <div>
+                    <a href="/logistica" class="btn btn-cinza" style="margin-right: 10px;">Cancelar</a>
+                    <button type="submit" class="btn btn-verde">Salvar Alterações</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function adicionarItemPedido() {
+            const container = document.getElementById('lista-itens-pedido');
+            const primeiroItem = container.querySelector('.item-pedido');
+            const novoItem = primeiroItem.cloneNode(true);
+            
+            const inputs = novoItem.querySelectorAll('input');
+            inputs.forEach(input => input.value = '');
+            novoItem.querySelector('select').value = '';
+            
+            container.appendChild(novoItem);
+        }
+        
+        function removerItemPedido(botao) {
+            const container = document.getElementById('lista-itens-pedido');
+            if (container.children.length > 1) { 
+                botao.parentElement.remove(); 
+            }
+        }
+    </script>
+</body>
+</html>

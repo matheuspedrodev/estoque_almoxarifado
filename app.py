@@ -620,6 +620,107 @@ def atualizar_status_pedido(pedido_id, novo_status):
 
     return redirect('/logistica')
 
+@app.route('/logistica/editar/<int:pedido_id>', methods=['GET', 'POST'])
+def editar_pedido(pedido_id):
+    if 'usuario_id' not in session:
+        return redirect('/login')
+
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+
+    if request.method == 'GET':
+        # 1. Busca a "capa" do pedido
+        cursor.execute('SELECT id, numero_pedido, cliente, status FROM Pedidos WHERE id = %s', (pedido_id,))
+        pedido = cursor.fetchone()
+
+        # Proteção: Não deixa editar pedido que já foi entregue
+        if not pedido or pedido[3] == 'ENTREGUE':
+            conexao.close()
+            flash('Não é possível editar pedidos já entregues.', 'erro')
+            return redirect('/logistica')
+
+        # 2. Busca os itens atuais do pedido
+        cursor.execute('SELECT produto_id, quantidade FROM Itens_Pedido WHERE pedido_id = %s', (pedido_id,))
+        itens_atuais = cursor.fetchall()
+
+        # 3. Busca lista de Módulos/Inversores para o select
+        cursor.execute('SELECT id, nome, quantidade_atual FROM Produtos WHERE estoque_separado = TRUE ORDER BY nome')
+        produtos_separados = cursor.fetchall()
+        conexao.close()
+
+        return render_template('editar_pedido.html', pedido=pedido, itens_atuais=itens_atuais, produtos_separados=produtos_separados)
+
+    if request.method == 'POST':
+        try:
+            novo_cliente = request.form['cliente'].strip()
+            produto_ids = request.form.getlist('produto_id_item')
+            quantidades = request.form.getlist('quantidade_item')
+
+            cursor.execute('SELECT numero_pedido FROM Pedidos WHERE id = %s', (pedido_id,))
+            numero_pedido = cursor.fetchone()[0]
+
+            # 1. BUSCA O PEDIDO ANTIGO E FAZ O ESTORNO GERAL
+            cursor.execute('SELECT produto_id, quantidade FROM Itens_Pedido WHERE pedido_id = %s', (pedido_id,))
+            itens_antigos = cursor.fetchall()
+
+            for item in itens_antigos:
+                p_id_antigo = item[0]
+                qtd_antiga = item[1]
+                
+                # Devolve para o saldo atual
+                cursor.execute('UPDATE Produtos SET quantidade_atual = quantidade_atual + %s WHERE id = %s', (qtd_antiga, p_id_antigo))
+                
+                # Grava a devolução no histórico como uma Entrada (quantidade negativa = entrada no seu sistema)
+                cursor.execute('''
+                    INSERT INTO Transacoes (produto_id, quantidade_retirada, solicitante, codigo_protocolo, usuario_id)
+                    VALUES (%s, %s, %s, %s, %s)
+                ''', (p_id_antigo, -qtd_antiga, f"Estorno (Edição Pedido {numero_pedido})", numero_pedido, session['usuario_id']))
+
+            # 2. LIMPA OS ITENS ANTIGOS DA TABELA DE LIGAÇÃO
+            cursor.execute('DELETE FROM Itens_Pedido WHERE pedido_id = %s', (pedido_id,))
+
+            # 3. VALIDA E INSERE OS NOVOS ITENS
+            for i in range(len(produto_ids)):
+                p_id = produto_ids[i]
+                qtd = int(quantidades[i]) if quantidades[i] else 0
+                
+                if p_id and qtd > 0:
+                    # Checa se o novo saldo (já com o estorno) suporta a nova quantidade
+                    cursor.execute('SELECT quantidade_atual, nome FROM Produtos WHERE id = %s', (p_id,))
+                    prod = cursor.fetchone()
+                    if prod and prod[0] < qtd:
+                        # Se não suportar, cancela tudo! O estorno é desfeito e nada muda.
+                        conexao.rollback()
+                        conexao.close()
+                        flash(f'Estoque insuficiente para "{prod[1]}". Disponível: {prod[0]}. A edição foi cancelada.', 'erro')
+                        return redirect(f'/logistica/editar/{pedido_id}')
+
+                    # Insere o novo item no pedido
+                    cursor.execute('INSERT INTO Itens_Pedido (pedido_id, produto_id, quantidade) VALUES (%s, %s, %s)', (pedido_id, p_id, qtd))
+                    
+                    # Retira o estoque da prateleira
+                    cursor.execute('UPDATE Produtos SET quantidade_atual = quantidade_atual - %s WHERE id = %s', (qtd, p_id))
+                    
+                    # Grava a nova saída no histórico
+                    cursor.execute('''
+                        INSERT INTO Transacoes (produto_id, quantidade_retirada, solicitante, codigo_protocolo, usuario_id)
+                        VALUES (%s, %s, %s, %s, %s)
+                    ''', (p_id, qtd, f"Reserva Atualizada: {novo_cliente}", numero_pedido, session['usuario_id']))
+
+            # 4. ATUALIZA A CAPA (Se mudou o nome do cliente)
+            cursor.execute('UPDATE Pedidos SET cliente = %s WHERE id = %s', (novo_cliente, pedido_id))
+
+            conexao.commit()
+            flash(f'O Pedido Nº {numero_pedido} foi atualizado com sucesso!', 'sucesso')
+
+        except Exception as e:
+            conexao.rollback()
+            flash(f'Erro ao editar pedido: {e}', 'erro')
+        finally:
+            conexao.close()
+
+        return redirect('/logistica')
+
 # === ROTA DO HISTÓRICO SEPARADO ===
 @app.route('/historico')
 def historico_protocolos():
