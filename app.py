@@ -21,6 +21,29 @@ csrf = CSRFProtect(app)
 def conectar_banco():
     return psycopg2.connect(os.environ.get('DATABASE_URL'))
 
+# ========================================================
+# ROTA TEMPORÁRIA: ZERAR O HISTÓRICO DE TRANSAÇÕES
+# ========================================================
+@app.route('/limpar_historico_magico')
+def limpar_historico_magico():
+    # Trava de segurança máxima: Apenas Admin
+    if 'usuario_id' not in session or session.get('usuario_nivel') != 'admin':
+        return "Acesso negado. Apenas o Administrador pode usar essa rota."
+
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+
+    try:
+        # Comando para apagar tudo APENAS da tabela de histórico
+        cursor.execute("DELETE FROM Transacoes")
+        conexao.commit()
+        return "<h1>🧹 Histórico limpo com sucesso!</h1><p>Todas as retiradas e adições de teste foram apagadas. O saldo do seu estoque continua intacto. Você já pode fechar esta página.</p>"
+    except Exception as e:
+        conexao.rollback()
+        return f"Erro ao limpar o histórico: {e}"
+    finally:
+        conexao.close()
+
 @app.route('/exportar_estoque')
 def exportar_estoque():
     try:
