@@ -21,51 +21,26 @@ csrf = CSRFProtect(app)
 def conectar_banco():
     return psycopg2.connect(os.environ.get('DATABASE_URL'))
 
-@app.route('/raio_x_produtos')
-def raio_x_produtos():
-    conexao = conectar_banco()
-    cursor = conexao.cursor()
-    try:
-        # Busca o nome exato de todas as colunas da tabela Produtos
-        cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name ILIKE 'produtos';")
-        colunas = [c[0] for c in cursor.fetchall()]
-        return f"<h1>As colunas da sua tabela Produtos são:</h1><h2 style='color: blue;'>{colunas}</h2>"
-    except Exception as e:
-        return f"Erro: {e}"
-    finally:
-        conexao.close()
+# ========================================================
+# ROTA TEMPORÁRIA: ENCHER O ESTOQUE PARA TESTES (SEGURO)
+# ========================================================
+@app.route('/encher_estoque_magico')
+def encher_estoque_magico():
+    # Segurança básica para não rodarem acidentalmente
+    if 'usuario_id' not in session or session.get('usuario_nivel') != 'admin':
+        return "Acesso negado. Apenas o Admin pode usar essa rota."
 
-@app.route('/criar_estrutura_kanban')
-def criar_estrutura_kanban():
     conexao = conectar_banco()
     cursor = conexao.cursor()
+
     try:
-        # 1. Cria a tabela principal de Pedidos
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS Pedidos (
-                id SERIAL PRIMARY KEY,
-                numero_pedido VARCHAR(50) UNIQUE NOT NULL,
-                cliente VARCHAR(255) NOT NULL,
-                status VARCHAR(50) DEFAULT 'SEPARADO', -- Valores: SEPARADO, EM ROTA, ENTREGUE
-                data_criacao TIMESTAMP DEFAULT NOW()
-            );
-        ''')
-        
-        # 2. Cria a tabela de Itens do Pedido (Muitos itens para 1 pedido)
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS Itens_Pedido (
-                id SERIAL PRIMARY KEY,
-                pedido_id INTEGER REFERENCES Pedidos(id) ON DELETE CASCADE,
-                produto_id INTEGER REFERENCES Produtos(id),
-                quantidade INTEGER NOT NULL
-            );
-        ''')
-        
+        # COMANDO CORRIGIDO: Só altera o que NÃO for do WMS (Módulos/Inversores)
+        cursor.execute("UPDATE Produtos SET quantidade_atual = 10000 WHERE estoque_separado = FALSE OR estoque_separado IS NULL")
         conexao.commit()
-        return "<h1>Estrutura do Kanban Criada!</h1><p>As tabelas 'Pedidos' e 'Itens_Pedido' já estão prontas no banco de dados. Podemos avançar para o código do painel!</p>"
+        return "<h1>✨ Almoxarifado atualizado com sucesso!</h1><p>Os itens gerais agora possuem 10.000 unidades. Seus Módulos e Inversores permaneceram intactos! Pode fechar esta página.</p>"
     except Exception as e:
         conexao.rollback()
-        return f"Erro ao criar estrutura: {e}"
+        return f"Erro ao atualizar o estoque: {e}"
     finally:
         conexao.close()
 
