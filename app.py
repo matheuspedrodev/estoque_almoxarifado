@@ -289,10 +289,9 @@ def adicionar_estoque():
 
             # 2. Grava no histórico de transações (Entrada)
             cursor.execute('''
-                INSERT INTO Transacoes (produto_id, usuario_id, quantidade_retirada, data_hora)
-                VALUES (%s, %s, %s, NOW())
-            ''', (p_id, session['usuario_id'], qtd))
-
+        INSERT INTO Transacoes (produto_id, quantidade_retirada, solicitante, codigo_protocolo, usuario_id)
+        VALUES (%s, %s, %s, %s, %s)
+    ''', (produto_id, -quantidade, "Entrada/Reposição", codigo_protocolo, session['usuario_id']))
         conexao.commit()
         flash('Entrada múltipla de materiais registrada com sucesso!', 'sucesso')
 
