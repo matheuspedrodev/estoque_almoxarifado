@@ -121,7 +121,7 @@ def index():
     conexao = conectar_banco()
     cursor = conexao.cursor()
 
-    cursor.execute("SELECT id, nome FROM Grupos ORDER BY nome")
+    cursor.execute("SELECT id, nome FROM Produtos WHERE estoque_separado = FALSE OR estoque_separado IS NULL ORDER BY nome")
     grupos = cursor.fetchall()
 
     pesquisa_atual = request.args.get('pesquisa', '')
@@ -410,13 +410,16 @@ def retirar_produto():
     for i in range(len(produto_ids)):
         p_id = produto_ids[i]
         qtd = int(quantidades[i]) if quantidades[i] else 0
-        if p_id and qtd > 0:
-            cursor.execute('SELECT quantidade_atual, nome FROM Produtos WHERE id = %s', (p_id,))
-            produto = cursor.fetchone()
-            if produto and produto[0] < qtd:
-                conexao.close()
-                flash(f'Estoque insuficiente para "{produto[1]}". Disponível: {produto[0]}, solicitado: {qtd}.', 'erro')
-                return redirect('/')
+        if produto[X] == True: # Onde X é a posição da coluna estoque_separado
+    flash('Módulos e Inversores só podem ser retirados pelo painel de Logística (WMS).', 'erro')
+    return redirect('/')
+            if p_id and qtd > 0:
+                cursor.execute('SELECT quantidade_atual, nome FROM Produtos WHERE id = %s', (p_id,))
+                produto = cursor.fetchone()
+                if produto and produto[0] < qtd:
+                    conexao.close()
+                    flash(f'Estoque insuficiente para "{produto[1]}". Disponível: {produto[0]}, solicitado: {qtd}.', 'erro')
+                    return redirect('/')
 
     for i in range(len(produto_ids)):
         p_id = produto_ids[i]
