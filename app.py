@@ -247,6 +247,8 @@ def adicionar_produto():
     return redirect('/')
 
 
+from datetime import datetime # Certifique-se de que isso está no topo do seu app.py, junto com os outros imports
+
 @app.route('/adicionar_estoque', methods=['POST'])
 def adicionar_estoque():
     if 'usuario_id' not in session:
@@ -264,6 +266,9 @@ def adicionar_estoque():
     if not produto_ids:
         flash('Nenhum material foi selecionado.', 'erro')
         return redirect('/')
+
+    # GERA O PROTOCOLO DE ENTRADA (Faltava isso!)
+    codigo_protocolo = datetime.now().strftime("ENT-%Y%m%d%H%M%S")
 
     conexao = conectar_banco()
     cursor = conexao.cursor()
@@ -288,10 +293,12 @@ def adicionar_estoque():
             ''', (qtd, preco, p_id))
 
             # 2. Grava no histórico de transações (Entrada)
+            # CORREÇÃO: Variáveis ajustadas para p_id e qtd
             cursor.execute('''
-        INSERT INTO Transacoes (produto_id, quantidade_retirada, solicitante, codigo_protocolo, usuario_id)
-        VALUES (%s, %s, %s, %s, %s)
-    ''', (produto_id, -quantidade, "Entrada/Reposição", codigo_protocolo, session['usuario_id']))
+                INSERT INTO Transacoes (produto_id, quantidade_retirada, solicitante, codigo_protocolo, usuario_id)
+                VALUES (%s, %s, %s, %s, %s)
+            ''', (p_id, -qtd, "Entrada/Reposição", codigo_protocolo, session['usuario_id']))
+            
         conexao.commit()
         flash('Entrada múltipla de materiais registrada com sucesso!', 'sucesso')
 
@@ -303,7 +310,6 @@ def adicionar_estoque():
         conexao.close()
 
     return redirect('/')
-
 
 @app.route('/excluir/<int:id>')
 def excluir_produto(id):
