@@ -21,29 +21,6 @@ csrf = CSRFProtect(app)
 def conectar_banco():
     return psycopg2.connect(os.environ.get('DATABASE_URL'))
 
-# ========================================================
-# ROTA TEMPORÁRIA: ENCHER O ESTOQUE PARA TESTES (SEGURO)
-# ========================================================
-@app.route('/encher_estoque_magico')
-def encher_estoque_magico():
-    # Segurança básica para não rodarem acidentalmente
-    if 'usuario_id' not in session or session.get('usuario_nivel') != 'admin':
-        return "Acesso negado. Apenas o Admin pode usar essa rota."
-
-    conexao = conectar_banco()
-    cursor = conexao.cursor()
-
-    try:
-        # COMANDO CORRIGIDO: Só altera o que NÃO for do WMS (Módulos/Inversores)
-        cursor.execute("UPDATE Produtos SET quantidade_atual = 10000 WHERE estoque_separado = FALSE OR estoque_separado IS NULL")
-        conexao.commit()
-        return "<h1>✨ Almoxarifado atualizado com sucesso!</h1><p>Os itens gerais agora possuem 10.000 unidades. Seus Módulos e Inversores permaneceram intactos! Pode fechar esta página.</p>"
-    except Exception as e:
-        conexao.rollback()
-        return f"Erro ao atualizar o estoque: {e}"
-    finally:
-        conexao.close()
-
 @app.route('/exportar_estoque')
 def exportar_estoque():
     try:
