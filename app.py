@@ -406,38 +406,62 @@ def retirar_produto():
     conexao = conectar_banco()
     cursor = conexao.cursor()
 
-    # Valida estoque de todos os itens antes de registrar qualquer saída
-    for i in range(len(produto_ids)):
-        p_id = produto_ids[i]
-        qtd = int(quantidades[i]) if quantidades[i] else 0
-        if produto[X] == True: # Onde X é a posição da coluna estoque_separado
-    flash('Módulos e Inversores só podem ser retirados pelo painel de Logística (WMS).', 'erro')
-    return redirect('/')
+    try:
+        # 1. PASSO DE VALIDAÇÃO: Testa estoque e blinda Módulos/Inversores antes de mexer em qualquer saldo
+        for i in range(len(produto_ids)):
+            p_id = produto_ids[i]
+            qtd = int(quantidades[i]) if quantidades[i] else 0
+            
             if p_id and qtd > 0:
-                cursor.execute('SELECT quantidade_atual, nome FROM Produtos WHERE id = %s', (p_id,))
+                # Buscamos a quantidade, o nome E a coluna estoque_separado
+                cursor.execute('SELECT quantidade_atual, nome, estoque_separado FROM Produtos WHERE id = %s', (p_id,))
                 produto = cursor.fetchone()
-                if produto and produto[0] < qtd:
-                    conexao.close()
-                    flash(f'Estoque insuficiente para "{produto[1]}". Disponível: {produto[0]}, solicitado: {qtd}.', 'erro')
-                    return redirect('/')
+                
+                if produto:
+                    qtd_disponivel = produto[0]
+                    nome_produto = produto[1]
+                    eh_do_wms = produto[2] # Posição 2 da lista (estoque_separado)
 
-    for i in range(len(produto_ids)):
-        p_id = produto_ids[i]
-        qtd = int(quantidades[i]) if quantidades[i] else 0
-        if p_id and qtd > 0:
-            # INJETADO: usuario_id e session['usuario_id'] salvos no INSERT
-            cursor.execute(
-                'INSERT INTO Transacoes (produto_id, quantidade_retirada, solicitante, codigo_protocolo, usuario_id) VALUES (%s, %s, %s, %s, %s)',
-                (p_id, qtd, solicitante, codigo_protocolo, session['usuario_id'])
-            )
-            cursor.execute(
-                'UPDATE Produtos SET quantidade_atual = quantidade_atual - %s WHERE id = %s',
-                (qtd, p_id)
-            )
-    conexao.commit()
-    conexao.close()
-    
-    flash('Retirada de materiais registrada com sucesso!', 'sucesso') # Aproveitei e coloquei o card verde aqui também!
+                    # TRAVA DO WMS: Se for módulo ou inversor (True), bloqueia na hora!
+                    if eh_do_wms == True:
+                        conexao.close()
+                        flash(f'Acesso Negado! O item "{nome_produto}" pertence ao WMS e só pode ser retirado pelo painel de Logística.', 'erro')
+                        return redirect('/')
+
+                    # VALIDAÇÃO DE SALDO: Se tentar retirar mais do que tem na prateleira
+                    if qtd_disponivel < qtd:
+                        conexao.close()
+                        flash(f'Estoque insuficiente para "{nome_produto}". Disponível: {qtd_disponivel}, solicitado: {qtd}.', 'erro')
+                        return redirect('/')
+
+        # 2. PASSO DE EXECUÇÃO: Se nenhum item falhou nas regras acima, o sistema roda os updates com segurança
+        for i in range(len(produto_ids)):
+            p_id = produto_ids[i]
+            qtd = int(quantidades[i]) if quantidades[i] else 0
+            
+            if p_id and qtd > 0:
+                # Grava no histórico de transações
+                cursor.execute('''
+                    INSERT INTO Transacoes (produto_id, quantity_retirada, solicitante, codigo_protocolo, usuario_id) 
+                    VALUES (%s, %s, %s, %s, %s)
+                ''', (p_id, qtd, solicitante, codigo_protocolo, session['usuario_id']))
+                
+                # Desconta o saldo da prateleira do almoxarifado
+                cursor.execute('''
+                    UPDATE Produtos 
+                    SET quantidade_atual = quantidade_atual - %s 
+                    WHERE id = %s
+                ''', (qtd, p_id))
+
+        conexao.commit()
+        flash('Retirada de materiais registrada com sucesso!', 'sucesso')
+
+    except Exception as e:
+        conexao.rollback()
+        flash(f'Erro inesperado ao processar retirada: {e}', 'erro')
+    finally:
+        conexao.close()
+        
     return redirect('/')
 
 # ========================================================
