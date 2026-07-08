@@ -464,6 +464,68 @@ def retirar_produto():
         
     return redirect('/')
 
+@app.route('/inventario', methods=['GET', 'POST'])
+def inventario():
+    if 'usuario_id' not in session:
+        return redirect('/login')
+        
+    # Trava de Segurança: Apenas Admin, Operador comum e Operador Logístico podem acessar
+    nivel = session.get('usuario_nivel')
+    if nivel not in ['admin', 'operador', 'operador logistico']:
+        flash('Acesso negado para o seu nível de usuário.', 'erro')
+        return redirect('/')
+        
+    conexao = conectar_banco()
+    cursor = conexao.cursor()
+    
+    if request.method == 'POST':
+        produto_id = request.form['produto_id']
+        nova_quantidade = float(request.form['quantidade'])
+        codigo_protocolo = datetime.now().strftime("INV-%Y%m%d%H%M%S")
+        
+        try:
+            # 1. Busca a quantidade antiga para calcular a diferença pro histórico
+            cursor.execute("SELECT quantidade_atual, nome FROM Produtos WHERE id = %s", (produto_id,))
+            produto = cursor.fetchone()
+            
+            if produto:
+                qtd_antiga = produto[0]
+                nome_produto = produto[1]
+                
+                # Calcula a diferença matemática para o histórico de transações
+                # No seu sistema: saídas/perdas são positivas, entradas/sobras são negativas.
+                diferenca = qtd_antiga - nova_quantidade
+                
+                # 2. Atualiza APENAS a quantidade na prateleira com o valor exato do inventário
+                cursor.execute("UPDATE Produtos SET quantidade_atual = %s WHERE id = %s", (nova_quantidade, produto_id))
+                
+                # 3. Registra o ajuste no histórico geral para auditoria futura
+                cursor.execute('''
+                    INSERT INTO Transacoes (produto_id, quantidade_retirada, solicitante, codigo_protocolo, usuario_id)
+                    VALUES (%s, %s, %s, %s, %s)
+                ''', (produto_id, diferenca, f"Ajuste de Inventário (De {qtd_antiga} para {nova_quantidade})", codigo_protocolo, session['usuario_id']))
+                
+                conexao.commit()
+                flash(f'Inventário de "{nome_produto}" atualizado para {nova_quantidade} com sucesso!', 'sucesso')
+            else:
+                flash('Produto não encontrado.', 'erro')
+                
+        except Exception as e:
+            conexao.rollback()
+            flash(f'Erro ao salvar inventário: {e}', 'erro')
+        finally:
+            conexao.close()
+            
+        return redirect('/inventario')
+        
+    else:
+        # Método GET: Carrega todos os produtos para preencher a caixinha de seleção
+        cursor.execute("SELECT id, nome, quantidade_atual, COALESCE(unidade_medida, 'un') FROM Produtos ORDER BY nome")
+        produtos = cursor.fetchall()
+        conexao.close()
+        
+        return render_template('inventario.html', produtos=produtos)
+
 # ========================================================
 #   PARTE 2: MOTOR DO KANBAN DE LOGÍSTICA (MÓDULOS/INVERSORES)
 # ========================================================

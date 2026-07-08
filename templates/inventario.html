@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <title>Inventário - Virtron</title>
+    <style>
+        :root { --verde-escuro: #064e2e; --verde-medio: #057a44; --verde-vibrante: #47b549; --fundo-cinza: #f4f6f5; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: var(--fundo-cinza); }
+        .header-virtron { background-color: var(--verde-escuro); color: white; padding: 15px 40px; display: flex; align-items: center; gap: 20px; }
+        .header-virtron img { max-height: 90px; }
+        .header-virtron h1 { margin: 0; font-size: 24px; border-left: 2px solid var(--verde-vibrante); padding-left: 15px;}
+        .container { padding: 30px 40px; display: flex; flex-direction: column; align-items: center; }
+        .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); width: 100%; max-width: 500px; border-top: 4px solid var(--verde-medio); margin-bottom: 20px;}
+        .form-group { margin-bottom: 15px; }
+        label { font-weight: bold; color: #555; }
+        input, select { padding: 10px; width: 100%; margin-top: 5px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 12px; background-color: var(--verde-medio); color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px;}
+        button:hover { background-color: var(--verde-escuro); }
+        .btn-voltar { color: var(--verde-escuro); text-decoration: none; font-weight: bold; margin-bottom: 20px; align-self: flex-start;}
+    </style>
+</head>
+<body>
+    <div class="header-virtron">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Virtron">
+        <h1>Ajuste de Inventário</h1>
+    </div>
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div style="padding: 15px; margin-bottom: 20px; border-radius: 4px; color: white; background-color: {% if category == 'erro' %}#dc3545{% else %}#28a745{% endif %}; width: 100%; max-width: 500px; box-sizing: border-box; font-weight: bold;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <a href="/" class="btn-voltar">⬅ Voltar ao Início</a>
+        
+        <div class="card">
+            <h2>📊 Lançar Contagem Física</h2>
+            <p style="color: #666; font-size: 14px; margin-top: -10px; margin-bottom: 20px;">
+                Use esta tela apenas para corrigir o saldo real da prateleira (Balanço). O sistema reajustará a quantidade sem alterar nenhuma outra configuração do material.
+            </p>
+            
+            <form action="/inventario" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div class="form-group">
+                    <label>Selecione o Material:</label>
+                    <select name="produto_id" required>
+                        <option value="">Escolha um produto...</option>
+                        {% for p in produtos %}
+                        <option value="{{ p[0] }}">{{ p[1] }} (Saldo atual no sistema: {{ p[2] }} {{ p[3] }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Quantidade Física Real Encontrada:</label>
+                    <input type="number" name="quantidade" step="0.01" min="0" placeholder="Digite a nova quantidade total..." required>
+                </div>
+                
+                <button type="submit">Atualizar Saldo de Estoque</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

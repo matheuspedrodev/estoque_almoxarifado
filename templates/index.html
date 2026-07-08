@@ -72,7 +72,7 @@
             
             <a href="/exportar_estoque" class="btn-menu" style="margin-left: 10px; background-color: #1d6f42; color: white; border-color: #1d6f42;">📥 Exportar Estoque (Excel)</a>
         {% endif %}
-
+            <a href="/inventario" class="btn">📊 Lançar Inventário (Balanço)</a>    
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
