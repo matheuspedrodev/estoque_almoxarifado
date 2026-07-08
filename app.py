@@ -193,12 +193,13 @@ def index():
 
     return render_template('index.html', 
                            produtos=produtos_gerais, 
+                           produtos_para_retirada=produtos_para_retirada, # <-- Adicionado aqui
                            produtos_separados=produtos_separados,
-                           grupos=grupos, 
+                           grupos=grupos, # Agora enviando os grupos corretos!
                            alertas=alertas, 
                            pesquisa_atual=pesquisa_atual, 
                            grupo_atual=grupo_atual)
-
+                           
 @app.route('/adicionar', methods=['POST'])
 def adicionar_produto():
     if 'usuario_id' not in session:
