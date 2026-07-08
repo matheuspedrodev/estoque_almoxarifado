@@ -121,8 +121,13 @@ def index():
     conexao = conectar_banco()
     cursor = conexao.cursor()
 
-    cursor.execute("SELECT id, nome FROM Produtos WHERE estoque_separado = FALSE OR estoque_separado IS NULL ORDER BY nome")
+    # 1. Pega os GRUPOS reais para o formulário de cadastro
+    cursor.execute("SELECT id, nome FROM Grupos ORDER BY nome")
     grupos = cursor.fetchall()
+
+    # 2. Pega apenas os PRODUTOS COMUNS (sem WMS) para o formulário de retirada
+    cursor.execute("SELECT id, nome FROM Produtos WHERE estoque_separado = FALSE OR estoque_separado IS NULL ORDER BY nome")
+    produtos_para_retirada = cursor.fetchall()
 
     pesquisa_atual = request.args.get('pesquisa', '')
     grupo_atual = request.args.get('grupo_filtro', '')
