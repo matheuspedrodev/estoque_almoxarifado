@@ -160,12 +160,18 @@ def index():
     alertas = []
 
     for p in produtos_brutos:
-        # p[10] é a nova coluna estoque_separado
+        # p[10] é a coluna estoque_separado
         if p[10]: 
             produtos_separados.append(p)
         else:
             produtos_gerais.append(p)
-            # ALERTA RODA APENAS PARA O ESTOQUE GERAL
+            
+            # BLOQUEIO DO GRUPO TECH: Não entra no cálculo de alertas de compra
+            nome_grupo = p[7]
+            if nome_grupo == 'TECH':
+                continue # Pula para o próximo produto sem gerar alerta
+                
+            # ALERTA RODA APENAS PARA O ESTOQUE GERAL (e que não seja TECH)
             try:
                 def pega_numero(valor):
                     if valor is None or str(valor).strip() == '': return 0.0
