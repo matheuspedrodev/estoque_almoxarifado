@@ -448,7 +448,7 @@ def retirar_produto():
             if p_id and qtd > 0:
                 # Grava no histórico de transações
                 cursor.execute('''
-                    INSERT INTO Transacoes (produto_id, quantity_retirada, solicitante, codigo_protocolo, usuario_id) 
+                    INSERT INTO Transacoes (produto_id, quantidade_retirada, solicitante, codigo_protocolo, usuario_id) 
                     VALUES (%s, %s, %s, %s, %s)
                 ''', (p_id, qtd, solicitante, codigo_protocolo, session['usuario_id']))
                 
